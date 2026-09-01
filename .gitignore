@@ -1,0 +1,4 @@
+/reports/
+/work/
+__pycache__/
+*.py[cod]

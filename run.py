@@ -29,7 +29,7 @@ from transcript import TranscriptError
 
 
 HERE = Path(__file__).resolve().parent
-REPO_ROOT = HERE.parents[1]
+DEFAULT_ZIGCHO_ROOT = HERE.parent / "zigcho"
 DEFAULT_TRANSCRIPTS = HERE / "transcripts"
 DEFAULT_MANIFEST = HERE / "manifest.json"
 _PARTIAL_COVERAGE_CODES = {
@@ -45,7 +45,7 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     inventory = subparsers.add_parser("inventory", help="check source packet and route inventory")
-    inventory.add_argument("--root", type=Path, default=REPO_ROOT)
+    inventory.add_argument("--root", type=Path, default=DEFAULT_ZIGCHO_ROOT)
     inventory.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
 
     validate = subparsers.add_parser("validate", help="validate transcripts and their surface coverage")
@@ -64,6 +64,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--target", action="append", default=[])
     run.add_argument("--zigcho-origin")
     run.add_argument("--reference-origin")
+    run.add_argument("--zigcho-root", type=Path, default=DEFAULT_ZIGCHO_ROOT)
     run.add_argument("--reference-root", type=Path)
     run.add_argument("--allow-mutating", action="store_true")
     run.add_argument("--require-all", action="store_true")
@@ -100,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.require_all and args.manifest.resolve() != DEFAULT_MANIFEST.resolve():
             raise ConfigError("--require-all only accepts the checked-in Stable conformance manifest")
 
-        source_inventory = check_coverage(REPO_ROOT, args.manifest)
+        source_inventory = check_coverage(args.zigcho_root, args.manifest)
         if args.require_all and source_inventory["status"] != "ok":
             raise ConfigError("the live source inventory does not match the checked manifest")
 
@@ -128,6 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             source_attestation = _attest_sources(
                 config,
+                zigcho_root=args.zigcho_root,
                 reference_root=args.reference_root,
                 pinned_reference_commit=reference["commit"],
             )
@@ -245,13 +247,14 @@ def _order_manifest_scenarios(transcripts: list[dict], manifest_path: Path) -> l
 def _attest_sources(
     config: dict,
     *,
+    zigcho_root: Path,
     reference_root: Path | None,
     pinned_reference_commit: str,
 ) -> dict:
     if reference_root is None:
         raise ConfigError("a complete proof requires --reference-root at the pinned bancho.py checkout")
     metadata = config["metadata"]
-    zigcho_commit = _clean_git_commit(REPO_ROOT, "zigcho")
+    zigcho_commit = _clean_git_commit(zigcho_root, "zigcho")
     if zigcho_commit != metadata["zigcho_commit"]:
         raise ConfigError("zigcho_commit metadata does not match the clean checkout HEAD")
     reference_commit = _clean_git_commit(reference_root, "reference")
@@ -300,7 +303,7 @@ def _clean_git_commit(root: Path, label: str) -> str:
 
 def _manifest_label(path: Path) -> str:
     try:
-        return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+        return path.resolve().relative_to(HERE.resolve()).as_posix()
     except ValueError:
         return "<external-manifest>"
 

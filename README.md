@@ -1,6 +1,8 @@
 # Stable conformance
 
-this is the bit that stops Stable compatibility becoming “it looked fine in one client”. it replays the same stateful HTTP and Bancho packet transcript against Zigcho and the pinned bancho.py reference, decodes both replies, and reports the first client-visible difference.
+this is the bit that stops Stable compatibility becoming "it looked fine in one client". it used to sit under the server's `tools/` directory; it has its own repo now because the harness is meant to judge both implementations from the outside, not quietly become part of either one.
+
+it replays the same stateful HTTP and Bancho packet transcript against Zigcho and the pinned bancho.py reference, decodes both replies, and reports the first client-visible difference.
 
 the reference is `osuAkatsuki/bancho.py@0651b54c66daa839c1bb3998e4f9a8d1173e144d` (5.3.0). the pin and the few intentional policy differences live in `reference.json`.
 
@@ -26,26 +28,28 @@ the checked surface is 46 registered client packets and 17 legacy PHP routes. pa
 the inventory and transcript validator need only Python 3.11 or newer:
 
 ```sh
-python3 tools/stable-conformance/run.py inventory
-python3 tools/stable-conformance/run.py validate
-python3 -m unittest discover -s tools/stable-conformance/tests -v
+python3 run.py inventory --root ../zigcho
+python3 run.py validate
+python3 -m unittest discover -s tests -v
 ```
 
 copy `config.example.json` somewhere outside the repo, set the fixture environment variables you need, then point the runner at one or both already-running servers:
 
 ```sh
-python3 tools/stable-conformance/run.py run \
+python3 run.py run \
   --config /private/path/stable-conformance.json \
+  --zigcho-root ../zigcho \
   --target zigcho \
   --zigcho-origin http://127.0.0.1:18090 \
-  --transcript tools/stable-conformance/transcripts/route-static.json
+  --transcript transcripts/route-static.json
 ```
 
 for a real differential run, leave both `zigcho` and `reference` selected:
 
 ```sh
-python3 tools/stable-conformance/run.py run \
+python3 run.py run \
   --config /private/path/stable-conformance.json \
+  --zigcho-root ../zigcho \
   --reference-root /private/path/bancho.py \
   --allow-mutating \
   --require-all \
@@ -89,3 +93,9 @@ the pinned source trees still have real differences this harness is meant to fai
 write-route checks include public readbacks for favourites, ratings, comments and submitted-score replay availability. screenshot object retrieval, direct unread-state inspection, and aggregate score/stat/achievement changes are not publicly observable through the pinned Stable routes, so those side effects still need fixture database assertions outside this HTTP harness. packet 79 is checked only for its immediate registered no-output contract because pinned bancho.py stores the presence filter but never reads it.
 
 the checked-in corpus is hand-authored from the two pinned implementations. it is not a captured real-client trace. static inventory, local decoder tests and a Zigcho-only smoke are not a live compatibility result. a full claim still needs both isolated servers, a redacted Stable-client capture replayed through this harness, every transcript unskipped and the resulting report saved with the exact two commits.
+
+## licence
+
+the harness itself uses the [Zigcho Public Use License](LICENSE). public use, modification and free redistribution are allowed with credit and a link back. do not sell it or present the work as entirely your own.
+
+the Zigcho source tree and pinned bancho.py reference keep their own licences. neither server implementation is copied into this repo.

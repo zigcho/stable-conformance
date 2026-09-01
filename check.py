@@ -781,7 +781,7 @@ def build_manifest(
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:
-    default_root = Path(__file__).resolve().parents[2]
+    default_root = Path(__file__).resolve().parent.parent / "zigcho"
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=default_root, help="repository root")
     parser.add_argument("--manifest", type=Path, default=Path(__file__).with_name("manifest.json"), help="checked classification manifest")

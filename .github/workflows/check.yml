@@ -1,0 +1,63 @@
+name: stable conformance contracts
+
+on:
+  workflow_call:
+    inputs:
+      zigcho_ref:
+        description: exact zigcho commit to inspect
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      zigcho_ref:
+        description: zigcho branch, tag or commit to inspect
+        required: true
+        default: main
+        type: string
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stable-conformance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: inventory, corpus and decoder
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: check out the harness
+        uses: actions/checkout@v6
+        with:
+          repository: zigcho/stable-conformance
+          ref: ${{ github.event_name == 'workflow_call' && 'main' || github.sha }}
+          path: harness
+          persist-credentials: false
+
+      - name: check out the exact zigcho source
+        uses: actions/checkout@v6
+        with:
+          repository: zigcho/zigcho
+          ref: ${{ inputs.zigcho_ref || 'main' }}
+          path: work/zigcho
+          persist-credentials: false
+
+      - name: use the supported Python floor
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: verify the Stable source inventory
+        run: python3 harness/run.py inventory --root work/zigcho
+
+      - name: verify complete transcript coverage
+        run: python3 harness/run.py validate
+
+      - name: run focused harness tests
+        run: python3 -m unittest discover -s harness/tests -v
