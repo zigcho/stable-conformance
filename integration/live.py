@@ -180,7 +180,8 @@ def main():
                    DEBUG="False", DEVELOPER_MODE="False", SEASONAL_BGS="", OSU_API_KEY="", DISCORD_INVITE="",
                    MIRROR_SEARCH_ENDPOINT="http://127.0.0.1:18999/search", MIRROR_DOWNLOAD_ENDPOINT="http://127.0.0.1:18999/d",
                    MENU_ICON_URL="", MENU_ONCLICK_URL="", DISCORD_AUDIT_LOG_WEBHOOK="", AUTOMATICALLY_REPORT_PROBLEMS="False")
-        bancho = launch([str(reference_python), "main.py"], reference, "reference", env)
+        reference_boot = HERE / "integration/reference_boot.py"
+        bancho = launch([str(reference_python), str(reference_boot)], reference, "reference", env)
         wait_ready(18091, bancho)
         config, tokens = build_config(ports, snapshot, commit)
         config_path = args.runtime / "fixture-config.json"
@@ -208,6 +209,7 @@ def main():
         (args.reports / "runtime-attestation.json").write_text(json.dumps({
             "zigcho_commit": commit, "binary_sha256": hashlib.sha256(args.binary.read_bytes()).hexdigest(),
             "reference_commit": PIN, "zigcho_pid": zigcho.pid, "reference_pid": bancho.pid,
+            "reference_bootstrap_sha256": hashlib.sha256(reference_boot.read_bytes()).hexdigest(),
             "scope": "synthetic isolated HTTP differential corpus; not real Stable client acceptance",
         }, indent=2) + "\n")
         return run_corpus(["run", "--config", str(config_path), "--zigcho-root", str(args.zigcho_root),

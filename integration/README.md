@@ -21,6 +21,11 @@ transcript's actions except its own declared requests.
 the records use fake accounts, generated hardware hashes, one generated map per
 set, and a generated replay. bot identity is recorded honestly: Kai is 3, the
 pinned reference bot is 1. no response-wide normalisation hides the difference.
+the reference bootstrap runs its normal lifespan, then joins its permanent bot
+to the same two public channels through `Player.join_channel`. that fixture
+membership and the bootstrap file's hash are retained in the evidence. no
+reference handler is replaced. medal image downloads are outside this corpus;
+the reference's asset directory is prepared without downloading that catalogue.
 
 ## evidence limits
 

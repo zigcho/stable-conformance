@@ -61,6 +61,9 @@ def seed(reference: Path, reference_python: Path) -> dict:
     replay_dir = reference / ".data/osr"
     map_dir.mkdir(parents=True, exist_ok=True)
     replay_dir.mkdir(parents=True, exist_ok=True)
+    # Medals' image files are outside this corpus. Avoid the reference startup's
+    # bulk external asset download; achievement evaluation remains unchanged.
+    (reference / ".data/assets/medals/client").mkdir(parents=True, exist_ok=True)
     for index in range(20):
         map_ = f.beatmap(index)
         (map_dir / f"{map_.id}.osu").write_bytes(map_.data)
@@ -76,6 +79,9 @@ def seed(reference: Path, reference_python: Path) -> dict:
     snapshot = {"schema": 1, "roles": ROLES, "maps": [{"id": f.beatmap(i).id, "md5": f.beatmap(i).md5} for i in range(20)],
                 "score": {"id": 1, "score": 1000000, "pp": 20, "replay_sha256": hashlib.sha256(raw_replay).hexdigest()},
                 "reference_bot_id": 1, "zigcho_bot_id": 3,
+                "bot_memberships": ["#osu", "#announce"],
+                "reference_bootstrap": "real lifespan plus bot.join_channel fixture calls; packet handlers unchanged",
+                "asset_scope": "medal image downloads excluded; image routes are not covered",
                 "note": "Bot ids differ by product contract; comparisons do not erase them. No real users or captures are used."}
     return snapshot
 
