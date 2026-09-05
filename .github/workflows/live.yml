@@ -103,8 +103,8 @@ jobs:
       - name: compare all transcripts against both real servers
         run: |
           set -euo pipefail
-          python -m unittest discover -s harness/tests -q
           cd harness
+          python -m unittest discover -s tests -q
           python -m integration.live --binary "$GITHUB_WORKSPACE/binary/zigcho" --zigcho-root "$GITHUB_WORKSPACE/zigcho" --reference-root "$GITHUB_WORKSPACE/reference" --runtime "$RUNNER_TEMP/stable-conformance-runtime" --reports "$GITHUB_WORKSPACE/reports" >"$GITHUB_WORKSPACE/reports/runner-output.json"
       - name: retain comparison evidence, including failures
         if: always()

@@ -64,4 +64,5 @@ jobs:
         run: python3 harness/run.py validate
 
       - name: run focused harness tests
-        run: python3 -m unittest discover -s harness/tests -v
+        working-directory: harness
+        run: python3 -m unittest discover -s tests -v
