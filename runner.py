@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from http_target import HttpResponse, TargetClient, TransportError, prepare_request
 from normalization import NormalizationError, apply_rules, first_difference
@@ -53,6 +53,9 @@ class RunOptions:
     require_all: bool = False
     continue_on_failure: bool = False
     source_attestations: frozenset[str] = field(default_factory=frozenset)
+    # Trusted in-process integration code only. Transcripts/config cannot name
+    # commands or import callbacks. Fixture actions remain visible in the report.
+    prepare_case: Callable[[str, Mapping[str, TargetState]], Mapping[str, Any]] | None = None
 
 
 def load_config(path: str | Path) -> tuple[dict[str, Any], dict[str, TargetState]]:
@@ -229,6 +232,9 @@ def run_transcripts(
             }
     cases: list[dict[str, Any]] = []
     for transcript in transcript_list:
+        preparation = None
+        if options.prepare_case is not None:
+            preparation = redact_value(options.prepare_case(transcript["id"], states), states.values())
         case = _run_case(
             transcript,
             states,
@@ -236,6 +242,8 @@ def run_transcripts(
             digest_key,
             globally_preflighted=globally_preflighted,
         )
+        if preparation is not None:
+            case["fixture_preparation"] = preparation
         cases.append(case)
         if case["status"] == "failed" and not options.continue_on_failure:
             break

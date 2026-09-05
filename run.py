@@ -73,7 +73,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, prepare_case=None) -> int:
     args = _parser().parse_args(argv)
     try:
         if args.command == "inventory":
@@ -156,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
                 allow_mutating=args.allow_mutating,
                 require_all=args.require_all,
                 continue_on_failure=args.continue_on_failure,
+                prepare_case=prepare_case,
                 source_attestations=frozenset(
                     contract["id"]
                     for contract in source_attestation.get("reference", {}).get("source_contracts", [])
