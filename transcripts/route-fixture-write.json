@@ -263,6 +263,7 @@
         { "from": "pipe_field", "name": "onlineScoreId", "as": "submitted_score_id", "type": "int", "secret": false }
       ],
       "response": {
+        "score_chart_contract": "first-perfect-nm-20260905",
         "format": "text",
         "expect_status": 200,
         "expect_nonempty": true,

@@ -384,6 +384,14 @@ def _run_step(
                 "error": errors[first_target], "failed_target": first_target, "target_errors": errors}
 
     target_names = list(states)
+    score_evidence = None
+    if step.get("response", {}).get("score_chart_contract"):
+        from score_charts import compare as compare_score_charts
+        try:
+            canonical, score_evidence = compare_score_charts(canonical, states, transcript["id"], step["id"])
+        except TranscriptError as exc:
+            return {"id": step["id"], "status": "failed", "targets": results,
+                    "error": _redact(str(exc), states.values())}
     policy_matrix = step.get("policy_matrix")
     if policy_matrix is not None:
         try:
@@ -441,6 +449,8 @@ def _run_step(
             return failure
     canonical_history[step["id"]] = copy.deepcopy(canonical)
     report = {"id": step["id"], "status": "passed", "targets": results}
+    if score_evidence is not None:
+        report["score_contract"] = score_evidence
     if defer_differential_comparison:
         report["comparison"] = "deferred_to_causal_response_group"
     return report

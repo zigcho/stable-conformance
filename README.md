@@ -63,7 +63,9 @@ for manually provisioned servers, use a frozen upstream and matching logical use
 
 login lists channels; it does not join the chat observer to them. the isolated runner explicitly parts and joins the peer before the chat case, checks the actual join acknowledgement, then drains setup traffic. reconnect checks retain the original login's protocol-version/user-id/privileges order and compare the whole bootstrap. the friends readbacks map only the known bot id, preserving the human friend list and add/remove checks.
 
-score response failures list the differing field names and short decimal score/stat metrics. arbitrary text, URLs and achievement payloads stay redacted. the raw response comparison still fails on formatting, score, pp or achievement differences; this is diagnostics, not a normalization rule.
+score response failures list the differing field names and short decimal score/stat metrics. arbitrary text, URLs and achievement payloads stay redacted.
+
+the two first-score fixtures compare the shared wire contract, not the whole product. our pp system, achievement catalogue, site links and aggregate rank tie-breaks are intentionally different. `score_charts.py` checks their field framing without demanding equal values. it checks the submitted fixture's actual score, combo, accuracy, map identity, map placement, date, field order and empty initial values. map counters and score ids still compare between targets; duplicate retries and replay readback still run afterwards. malformed or missing fields still fail. reports explicitly say calculator and achievement catalogue equivalence were not tested.
 
 the social friends readbacks explicitly use `unordered_user_id_lines`: bancho.py iterates a set, while Zigcho can append kai after human friends. this format sorts ids before the declared bot mapping, but keeps every entry, including duplicates, and the trailing-newline flag. it does not change ordered packet or leaderboard comparisons.
 
@@ -81,7 +83,7 @@ the comparison contract is intentionally strict:
 - content type can be disabled per step where Stable does not consume it
 - `ignore` and `variable` rules must name one exact object path
 - a missing path or a value that does not match its declared variable fails the case
-- score value, PP, mods, beatmap status, leaderboard namespace, pass state and replay availability must not be normalized away
+- generic normalization cannot erase gameplay values. the explicit first-score contract excludes product pp and aggregate ranks from equality; score value, mods, beatmap status, namespace, pass state and replay availability remain checked
 - generated screenshot names use one dedicated shape check; there is no generic whole-string substitution
 - a policy can compare declared common packet ids as full per-id occurrence lists, so harmless cross-packet ordering differences cannot hide payload drift or an extra packet
 - where the two servers deliver an actor update in different adjacent polls, the declared causal response group concatenates both decoded packet streams and compares the complete semantic sequence

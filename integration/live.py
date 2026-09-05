@@ -271,7 +271,7 @@ def main():
             "reference_bootstrap_sha256": hashlib.sha256(reference_boot.read_bytes()).hexdigest(),
             "zigcho_pp_engine": args.binary.with_name("pp-engine-version").read_text().strip(),
             "reference_pp_engine": "akatsuki-pp-py==1.0.5 (frozen reference dependency)",
-            "pp_engine_boundary": "engines are not identical; numerical differences remain failures, never normalized",
+            "pp_engine_boundary": "shared score wire compared; product pp, aggregate ranking, site URLs and achievement contents are not equality comparisons",
             "scope": "synthetic isolated HTTP differential corpus; not real Stable client acceptance",
         }, indent=2) + "\n")
         return run_corpus(["run", "--config", str(config_path), "--zigcho-root", str(args.zigcho_root),

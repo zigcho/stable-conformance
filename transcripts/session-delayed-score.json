@@ -13,7 +13,7 @@
     "the player is unrestricted and unsilenced and has no unread messages on either target",
     "the encrypted multipart score uses the fixture player's password hash and the exact client binding used by both logins",
     "object storage is isolated and empty for the fixture replay key",
-    "the two servers use the same PP engine and calculation inputs"
+    "shared score wire is compared; product pp, aggregate ranking, site URLs and achievement contents are not equality comparisons"
   ],
   "requires": [
     "stable_delayed_username",
@@ -144,6 +144,7 @@
         "body": { "encoding": "base64", "value": "{{delayed_score_multipart_body_b64}}" }
       },
       "response": {
+        "score_chart_contract": "first-perfect-nm-20260905",
         "format": "text",
         "expect_status": 200,
         "expect_nonempty": true,

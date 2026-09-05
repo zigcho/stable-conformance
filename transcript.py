@@ -25,6 +25,7 @@ _FORMATS = {"bancho_packets", "binary", "json", "text", "user_id_lines", "unorde
 _CATEGORIES = {"legacy-web", "malformed-input", "policy-matrix", "stable-packets"}
 _SOURCE_ATTESTATIONS = {"reference-presence-request-all-shadowed-set-routing"}
 _RESPONSE_KEYS = {
+    "score_chart_contract",
     "compare",
     "expect_content_type",
     "expect_nonempty",
@@ -314,6 +315,14 @@ def validate_transcript(value: Any, *, source: str = "<transcript>") -> None:
         if query is not None and not isinstance(query, (dict, list)):
             raise TranscriptError(f"{where}.request.query must be an object or array of pairs")
         _validate_body(request.get("body"), where=f"{where}.request.body")
+        if "score_chart_contract" in response:
+            if (response["score_chart_contract"] != "first-perfect-nm-20260905"
+                or (value["id"], step_id) not in {("session-delayed-score", "delayed-submit"), ("route-fixture-write", "submit-score")}
+                or body_format != "text" or request.get("method") != "POST"
+                or request.get("path") != "/web/osu-submit-modular-selector.php"
+                or not compare.get("body", True) or "policy_matrix" in step
+                or step.get("normalizers") or value.get("normalizers")):
+                raise TranscriptError(f"{where}: invalid scope for pinned score chart contract")
         _validate_rules(step.get("normalizers", []), where=f"{where}.normalizers")
         _validate_captures(step.get("capture", []), where=f"{where}.capture")
         _validate_policy_matrix(step.get("policy_matrix"), category=value.get("category"), where=f"{where}.policy_matrix")
