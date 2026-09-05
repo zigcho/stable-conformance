@@ -117,12 +117,14 @@ class Workload:
         score = await asyncio.to_thread(f.score_request, self.args.players - 1, 0, self.maps[-1])
         first = await self.submit(self.args.players - 1, score)
         retry = await self.submit(self.args.players - 1, score)
-        if not first[1] or not retry[1] or first[2] != retry[2]:
+        duplicate_error_no = retry[0].status == 200 and retry[0].error is None and retry[0].body.strip() == b"error: no"
+        if not first[1] or not ((retry[1] and first[2] == retry[2]) or duplicate_error_no):
             raise RuntimeError(f"valid score/retry preflight failed, statuses={first[0].status}/{retry[0].status}")
         self.preflight_score_id = first[2]
         stored = self.database.verify_scores([score[2]])
         if stored["stored"] != 1 or stored["with_replay"] != 1 or stored["archived"] != 1:
             raise RuntimeError("score preflight did not persist and archive one canonical score with replay")
+        stored["duplicate_response"] = "existing_stable_error_no" if duplicate_error_no else "same_receipt"
         result["idempotent_score_retry"] = stored
 
         async def join_channels(index):

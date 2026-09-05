@@ -12,6 +12,8 @@ client percentiles count successful protocol responses, with a one-millisecond u
 
 server durations use differences between the starting and ending histogram scrapes. reports also include RSS/CPU samples, pending work, PostgreSQL statement statistics, the exact running executable hash and commit, database size, persisted replay counts and received chat/spectator/multiplayer packets.
 
+the retry preflight accepts the existing Stable duplicate response (`200 error: no`) only after the original submission returned a score receipt, then requires exactly one stored score with replay and object reference. it records that response explicitly; ordinary submissions with `error: no` still fail. the local object endpoint uses the certificate's DNS name because the pinned Zig TLS verifier checks DNS subject names.
+
 the cold-gameplay pass follows a server/database restart and cache reset in the disposable runner. logging players in necessarily warms account state. the next pass uses the same process and sessions, with the plays added by the first pass. this is not a claim that every layer is cold, nor an identical-data before/after optimization comparison.
 
 the origin is direct HTTP; it excludes Cloudflare and Layerline. the HTTPS MinIO service is local, so its timings do not stand in for Singapore storage latency. the private anticheat module is absent; Stable replay preparation and built-in observation still run. lazer traffic, Relax/AP, a one-hour peak test and a longer soak need separate runs before claiming coverage for them.
