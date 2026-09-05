@@ -212,6 +212,9 @@ def main():
                 if case_id == "packet-tournament":
                     status, _, body = request(port, f.create_match(19, 0, f.beatmap(0)), tokens[name]["tournament_host"])
                     actions.append({"action": "create-tournament-fixture-room", "status": status, "packet_ids": packet_ids(body)})
+                if case_id == "packet-session-presence-chat":
+                    status, _, body = request(port, f.packet(78, f.string("#osu")), tokens[name]["primary"])
+                    actions.append({"action": "establish-primary-not-joined-baseline", "status": status, "packet_ids": packet_ids(body)})
                 drains = []
                 for role, token in tokens[name].items():
                     status, _, body = request(port, token=token)
@@ -230,6 +233,9 @@ def main():
             "zigcho_commit": commit, "binary_sha256": hashlib.sha256(args.binary.read_bytes()).hexdigest(),
             "reference_commit": PIN, "zigcho_pid": zigcho.pid, "reference_pid": bancho.pid,
             "reference_bootstrap_sha256": hashlib.sha256(reference_boot.read_bytes()).hexdigest(),
+            "zigcho_pp_engine": args.binary.with_name("pp-engine-version").read_text().strip(),
+            "reference_pp_engine": "akatsuki-pp-py==1.0.5 (frozen reference dependency)",
+            "pp_engine_boundary": "engines are not identical; numerical differences remain failures, never normalized",
             "scope": "synthetic isolated HTTP differential corpus; not real Stable client acceptance",
         }, indent=2) + "\n")
         return run_corpus(["run", "--config", str(config_path), "--zigcho-root", str(args.zigcho_root),

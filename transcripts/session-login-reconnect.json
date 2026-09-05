@@ -10,7 +10,7 @@
   },
   "fixture_contract": [
     "the player exists with the same logical profile, numeric id, country, stats and friends on both targets, is unrestricted and unsilenced, and has no unread messages",
-    "both isolated servers expose the same channels and bot presence",
+    "both isolated servers expose the same public channels; fixed bot identities, zero gameplay stats and presence are verified under the declared bot-branding contract",
     "no unrelated player logs in or changes channel counts while the case runs",
     "the fixture account has no active Stable or lazer session before the first step"
   ],

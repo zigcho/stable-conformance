@@ -53,3 +53,9 @@ a seed recipe, not a post-run database-equivalence assertion.
 even a clean run is synthetic HTTP evidence. installed Stable clients, real
 redacted captures, all rulesets/RX/AP/ScoreV2 and tournament acceptance remain
 separate work. this runner does not deploy or announce anything.
+
+the current server and reference use different vanilla PP engines. their versions
+are recorded in runtime evidence. the delayed-score transcript's same-engine
+precondition is therefore not fulfilled by this diagnostic fixture, and no
+numeric score/stat difference is waived. a failed numeric comparison is evidence
+to inspect, not permission to change Zigcho's calculator to get a green badge.
