@@ -166,6 +166,7 @@ def main():
         if status != 201:
             raise RuntimeError(f"isolated registration failed: HTTP {status}")
         snapshot = seed(reference, reference_python)
+        (reference / "logging.yaml").write_text((reference / "logging.yaml.example").read_text())
         (args.reports / "fixture.json").write_text(json.dumps(snapshot, indent=2) + "\n")
         env = os.environ.copy()
         # Audited reference test config; every endpoint/credential overridden below
@@ -202,7 +203,14 @@ def main():
                 drains = []
                 for role, token in tokens[name].items():
                     status, _, body = request(port, token=token)
-                    drains.append({"role": role, "status": status, "packet_ids": packet_ids(body)})
+                    decoded = decode_packet_stream(body)
+                    # Earlier malformed/logout scenarios may deliberately
+                    # invalidate a dedicated fixture token. Record that traffic
+                    # without mistaking it for the next scenario's response.
+                    drains.append({"role": role, "status": status,
+                                   "complete_packet_stream": decoded.complete,
+                                   "packet_ids": [packet.packet_id for packet in decoded.packets],
+                                   "body_sha256": hashlib.sha256(body).hexdigest()})
                 evidence["targets"][name] = {"actions": actions, "drained": drains}
             return evidence
 

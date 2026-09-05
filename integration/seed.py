@@ -54,7 +54,7 @@ def seed(reference: Path, reference_python: Path) -> dict:
     for index in range(20):
         priv = 0 if index == 12 else 19
         silenced = silence_end if index == 14 else 0
-        queries.append(f"INSERT INTO users(id,name,safe_name,email,pw_bcrypt,priv,country,silence_end,creation_time,latest_activity) VALUES ({f.USER_BASE+index},'bench_{index}','bench_{index}','bench_{index}@example.invalid','{bcrypt_hash}',{priv},'au',{silenced},1700000000,1700000000);")
+        queries.append(f"INSERT INTO users(id,name,safe_name,email,pw_bcrypt,priv,country,silence_end,donor_end,creation_time,latest_activity) VALUES ({f.USER_BASE+index},'bench_{index}','bench_{index}','bench_{index}@example.invalid','{bcrypt_hash}',{priv},'au',{silenced},{silence_end},1700000000,1700000000);")
         for mode in (0, 1, 2, 3, 4, 5, 6, 8):
             queries.append(f"INSERT INTO stats(id,mode) VALUES ({f.USER_BASE+index},{mode});")
     map_dir = reference / ".data/osu"

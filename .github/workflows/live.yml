@@ -105,6 +105,7 @@ jobs:
           set -euo pipefail
           cd harness
           python -m unittest discover -s tests -q
+          python run.py validate
           python -m integration.live --binary "$GITHUB_WORKSPACE/binary/zigcho" --zigcho-root "$GITHUB_WORKSPACE/zigcho" --reference-root "$GITHUB_WORKSPACE/reference" --runtime "$RUNNER_TEMP/stable-conformance-runtime" --reports "$GITHUB_WORKSPACE/reports" >"$GITHUB_WORKSPACE/reports/runner-output.json"
       - name: retain comparison evidence, including failures
         if: always()
