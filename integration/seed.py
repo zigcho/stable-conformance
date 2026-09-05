@@ -2,9 +2,11 @@
 
 import base64
 import hashlib
+import io
 import json
 import subprocess
 import time
+import zipfile
 from pathlib import Path
 
 from benchmarks import fixtures as f
@@ -36,6 +38,7 @@ def mysql(query: str) -> str:
 def seed(reference: Path, reference_python: Path) -> dict:
     database = Database()  # Enforces loopback and the disposable database name.
     database.seed(accounts=20, scores=1, maps=20, active=20)
+    database.sql("UPDATE zigcho.beatmaps SET last_update=1788566400;")
     silence_end = int(time.time()) + 3600
     database.sql(f"UPDATE zigcho.users SET privileges=19 WHERE id BETWEEN 10000 AND 10019; UPDATE zigcho.users SET restricted=true WHERE id=10012; UPDATE zigcho.users SET silence_end={silence_end} WHERE id=10014;")
     raw_replay = f.replay(0, 0, f.beatmap(0))
@@ -68,7 +71,13 @@ def seed(reference: Path, reference_python: Path) -> dict:
         map_ = f.beatmap(index)
         (map_dir / f"{map_.id}.osu").write_bytes(map_.data)
         filename = f"zigcho benchmark - isolated workload {index} (bench_0) [synthetic].osu"
-        queries.append(f"INSERT INTO mapsets(id) VALUES ({map_.id}); INSERT INTO maps(id,set_id,status,md5,artist,title,version,creator,filename,last_update,total_length,max_combo,frozen,mode,bpm,cs,ar,od,hp) VALUES ({map_.id},{map_.id},2,'{map_.md5}','zigcho benchmark','isolated workload {index}','synthetic','bench_0','{filename}',NOW(),121,600,1,0,150,4,8,6,5);")
+        archive_buffer = io.BytesIO()
+        with zipfile.ZipFile(archive_buffer, "w") as archive:
+            entry = zipfile.ZipInfo(filename, date_time=(2026, 9, 5, 0, 0, 0))
+            archive.writestr(entry, map_.data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=1)
+        archive_bytes = archive_buffer.getvalue()
+        database.sql(f"INSERT INTO zigcho.beatmap_archives(set_id,sha256,osz_file) VALUES ({map_.id},'{hashlib.sha256(archive_bytes).hexdigest()}',decode('{archive_bytes.hex()}','hex'));")
+        queries.append(f"INSERT INTO mapsets(id) VALUES ({map_.id}); INSERT INTO maps(id,set_id,status,md5,artist,title,version,creator,filename,last_update,total_length,max_combo,frozen,mode,bpm,cs,ar,od,hp) VALUES ({map_.id},{map_.id},2,'{map_.md5}','zigcho benchmark','isolated workload {index}','synthetic','bench_0','{filename}','2026-09-05 00:00:00',121,600,1,0,150,4,8,6,5);")
     map_ = f.beatmap(0)
     checksum = hashlib.md5(b"historical-0").hexdigest()
     timestamp = database.sql("SELECT submitted_at FROM zigcho.scores WHERE id=1;")
@@ -82,6 +91,7 @@ def seed(reference: Path, reference_python: Path) -> dict:
                 "bot_memberships": ["#osu", "#announce"],
                 "reference_bootstrap": "typed empty seasonal config, real lifespan, then bot.join_channel fixture calls; packet handlers unchanged",
                 "asset_scope": "medal image downloads excluded; image routes are not covered",
+                "archives": "20 real ZIP packages with synthetic .osu files; no audio or installed-client playback acceptance",
                 "note": "Bot ids differ by product contract; comparisons do not erase them. No real users or captures are used."}
     return snapshot
 
