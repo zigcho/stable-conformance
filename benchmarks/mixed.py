@@ -65,6 +65,7 @@ class Workload:
     async def bootstrap(self) -> dict:
         semaphore = asyncio.Semaphore(8)
         login_latencies = Series()
+        next_poll = [0.0] * self.args.players
 
         async def one(index):
             async with semaphore:
@@ -75,6 +76,7 @@ class Workload:
                 if not valid:
                     raise RuntimeError(f"fixture login failed at player {index}, status={response.status}, error={response.error}")
                 self.tokens[index] = token
+                next_poll[index] = time.monotonic() + (index % 50) / 10
                 self.bootstrap_progress["logged_in"] += 1
                 if self.bootstrap_progress["logged_in"] % 100 == 0:
                     print(json.dumps({"stage": "login", **self.bootstrap_progress}), flush=True)
@@ -87,9 +89,13 @@ class Workload:
                 async def check(index):
                     if not self.packets_valid(await self.poll(index)):
                         self.bootstrap_progress["keepalive_failures"] += 1
-                await asyncio.gather(*(check(index) for index, token in enumerate(self.tokens) if token))
+                now = time.monotonic()
+                due = [index for index, token in enumerate(self.tokens) if token and next_poll[index] <= now]
+                for index in due:
+                    next_poll[index] = now + 5
+                await asyncio.gather(*(check(index) for index in due))
                 try:
-                    await asyncio.wait_for(done.wait(), 5)
+                    await asyncio.wait_for(done.wait(), .1)
                 except TimeoutError:
                     pass
 
