@@ -1,0 +1,131 @@
+name: isolated live Stable comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: successful zigcho release-gates run to compare
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: isolated-live-stable
+  cancel-in-progress: false
+
+jobs:
+  comparison:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      ZIGCHO_BENCHMARK_POSTGRES_URL: postgresql://zigcho:benchmark-db-fixture@127.0.0.1:18432/zigcho_benchmark
+      ZIGCHO_POSTGRES_URL: host=127.0.0.1 port=18432 dbname=zigcho_benchmark user=zigcho password=benchmark-db-fixture connect_timeout=5
+      AWS_ACCESS_KEY_ID: benchmark-access
+      AWS_SECRET_ACCESS_KEY: benchmark-secret-isolated
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: fetch the exact successful server artifact
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN: ${{ inputs.release_run }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
+          mkdir reports binary
+          gh api "repos/zigcho/zigcho/actions/runs/$RELEASE_RUN" >reports/release-run.json
+          jq -e '.conclusion == "success" and .path == ".github/workflows/release-gates.yml" and .head_repository.full_name == "zigcho/zigcho"' reports/release-run.json
+          commit=$(jq -r .head_sha reports/release-run.json)
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          gh run download "$RELEASE_RUN" --repo zigcho/zigcho --name "zigcho-linux-x64-$commit" --dir binary
+          (cd binary && sha256sum --check zigcho.sha256)
+          chmod +x binary/zigcho
+          printf 'commit=%s\n' "$commit" >>"$GITHUB_OUTPUT"
+          git -C harness rev-parse HEAD >reports/harness-commit.txt
+          cp binary/zigcho.sha256 reports/server.sha256
+      - uses: actions/checkout@v6
+        with:
+          repository: zigcho/zigcho
+          ref: ${{ steps.release.outputs.commit }}
+          path: zigcho
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          repository: osuAkatsuki/bancho.py
+          ref: 0651b54c66daa839c1bb3998e4f9a8d1173e144d
+          path: reference
+          persist-credentials: false
+      - name: install the pinned reference and fixture dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpq5 libsqlite3-0 postgresql-client
+          python -m pip install 'uv==0.11.23'
+          (cd reference && uv sync --frozen --no-install-project)
+          python -m pip install --no-build-isolation --require-hashes -r harness/benchmarks/requirements.txt
+          docker pull postgres:17-bookworm
+          docker pull mysql:8.0
+          docker pull redis:7-alpine
+          docker pull minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
+          docker image inspect postgres:17-bookworm mysql:8.0 redis:7-alpine minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e --format '{{json .RepoDigests}}' >reports/container-digests.jsonl
+      - name: start disposable databases and HTTPS object storage
+        run: |
+          set -euo pipefail
+          cert_dir=$(mktemp -d "$RUNNER_TEMP/conformance-certs.XXXXXX")
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout "$cert_dir/private.key" -out "$cert_dir/public.crt" -days 1 -subj '/CN=localhost' -addext 'subjectAltName=IP:127.0.0.1,DNS:localhost' 2>/dev/null
+          sudo cp "$cert_dir/public.crt" /usr/local/share/ca-certificates/zigcho-conformance.crt
+          sudo update-ca-certificates >/dev/null
+          docker run -d --name zigcho-conformance-pg --network host -e POSTGRES_DB=zigcho_benchmark -e POSTGRES_USER=zigcho -e POSTGRES_PASSWORD=benchmark-db-fixture postgres:17-bookworm -p 18432 -c listen_addresses=127.0.0.1 -c shared_preload_libraries=pg_stat_statements
+          docker run -d --name zigcho-conformance-mysql -p 127.0.0.1:13306:3306 -e MYSQL_DATABASE=bancho_conformance -e MYSQL_ROOT_PASSWORD=conformance-fixture -e MYSQL_ROOT_HOST=% mysql:8.0
+          docker run -d --name zigcho-conformance-redis -p 127.0.0.1:16379:6379 redis:7-alpine
+          docker run -d --name zigcho-conformance-objects --network host -v "$cert_dir:/root/.minio/certs:ro" -e MINIO_ROOT_USER=benchmark-access -e MINIO_ROOT_PASSWORD=benchmark-secret-isolated minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e server /data --address 127.0.0.1:19000 --console-address 127.0.0.1:19001
+          for attempt in $(seq 1 60); do
+            if pg_isready -h 127.0.0.1 -p 18432 -q && docker exec -e MYSQL_PWD=conformance-fixture zigcho-conformance-mysql mysql -uroot -N -e 'SELECT 1' >/dev/null 2>&1 && curl --fail --silent https://localhost:19000/minio/health/live; then break; fi
+            sleep 1
+          done
+          pg_isready -h 127.0.0.1 -p 18432 -q
+          docker exec -e MYSQL_PWD=conformance-fixture zigcho-conformance-mysql mysql -uroot -N -e 'SELECT 1'
+          aws --endpoint-url https://localhost:19000 --ca-bundle "$cert_dir/public.crt" s3api create-bucket --bucket zigcho-benchmark
+          # Both fixture proxies supply synthetic AU coordinates. Block the
+          # optional external geolocation lookup instead of calling production.
+          printf '\n127.0.0.2 ip-api.com\n' | sudo tee -a /etc/hosts >/dev/null
+      - name: compare all transcripts against both real servers
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s harness/tests -q
+          cd harness
+          python -m integration.live --binary "$GITHUB_WORKSPACE/binary/zigcho" --zigcho-root "$GITHUB_WORKSPACE/zigcho" --reference-root "$GITHUB_WORKSPACE/reference" --runtime "$RUNNER_TEMP/stable-conformance-runtime" --reports "$GITHUB_WORKSPACE/reports" >"$GITHUB_WORKSPACE/reports/runner-output.json"
+      - name: retain comparison evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-live-comparison-${{ github.run_id }}
+          retention-days: 14
+          path: |
+            reports/*.json
+            reports/*.jsonl
+            reports/*.sha256
+            reports/*.txt
+          if-no-files-found: error
+      - name: show bounded setup diagnostics on failure
+        if: failure()
+        run: |
+          # Only synthetic accounts exist here; request/config files and SQL are
+          # deliberately excluded from the published artifact.
+          for log in reports/zigcho.log reports/reference.log; do
+            if test -f "$log"; then tail -60 "$log"; fi
+          done
+      - name: stop disposable services
+        if: always()
+        run: docker stop zigcho-conformance-pg zigcho-conformance-mysql zigcho-conformance-redis zigcho-conformance-objects || true
