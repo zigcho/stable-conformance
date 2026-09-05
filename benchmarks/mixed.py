@@ -36,6 +36,7 @@ class Workload:
         self.spectator_hosts: set[int] = set()
         self.spectators: set[int] = set()
         self.preflight_score_id: int | None = None
+        self.bootstrap_progress = {"logged_in": 0, "keepalive_failures": 0}
 
     def packets_valid(self, response: Response) -> bool:
         if response.error or response.status != 200:
@@ -74,9 +75,35 @@ class Workload:
                 if not valid:
                     raise RuntimeError(f"fixture login failed at player {index}, status={response.status}, error={response.error}")
                 self.tokens[index] = token
+                self.bootstrap_progress["logged_in"] += 1
+                if self.bootstrap_progress["logged_in"] % 100 == 0:
+                    print(json.dumps({"stage": "login", **self.bootstrap_progress}), flush=True)
 
         started = time.monotonic()
-        await asyncio.gather(*(one(index) for index in range(self.args.players)))
+        done = asyncio.Event()
+
+        async def keepalive():
+            while not done.is_set():
+                async def check(index):
+                    if not self.packets_valid(await self.poll(index)):
+                        self.bootstrap_progress["keepalive_failures"] += 1
+                await asyncio.gather(*(check(index) for index, token in enumerate(self.tokens) if token))
+                try:
+                    await asyncio.wait_for(done.wait(), 5)
+                except TimeoutError:
+                    pass
+
+        # Already-connected clients continue polling during a slow login ramp.
+        # Otherwise the five-minute expiry silently reduces the target population.
+        heartbeat = asyncio.create_task(keepalive())
+        try:
+            async with asyncio.timeout(600):
+                await asyncio.gather(*(one(index) for index in range(self.args.players)))
+        finally:
+            done.set()
+            await heartbeat
+        if self.bootstrap_progress["keepalive_failures"]:
+            raise RuntimeError("a connected fixture client was lost during the login ramp")
         result = login_latencies.summary(time.monotonic() - started)
         result["setup_seconds"] = time.monotonic() - started
 
@@ -282,10 +309,28 @@ async def main(args):
             executable_hash = hashlib.file_digest(executable, "sha256").hexdigest()
         if executable_hash != args.server_sha256:
             raise RuntimeError("running executable does not match the recorded artifact")
-        report = {"schema": 1, "server_commit": args.server_commit, "server_sha256": executable_hash, "hardware": {"platform": platform.platform(), "logical_cpus": os.cpu_count(), "cpuinfo": Path("/proc/cpuinfo").read_text().split("\n\n", 1)[0]}, "scope": "synthetic Stable osu!standard vanilla clients, direct-origin HTTP, local HTTPS MinIO; no production or private anticheat module", "cache_scope": "first gameplay pass after restart and database-cache reset, then the same process/sessions warm; login necessarily warms account state", "bootstrap": await workload.bootstrap(), "phases": []}
-        for name, sequence in (("cold_gameplay", 10000), ("warm", 20000)):
-            report["phases"].append(await workload.phase(name, sequence))
+        report = {"schema": 1, "server_commit": args.server_commit, "server_sha256": executable_hash, "hardware": {"platform": platform.platform(), "logical_cpus": os.cpu_count(), "cpuinfo": Path("/proc/cpuinfo").read_text().split("\n\n", 1)[0]}, "scope": "synthetic Stable osu!standard vanilla clients, direct-origin HTTP, local HTTPS MinIO; no production or private anticheat module", "cache_scope": "first gameplay pass after restart and database-cache reset, then the same process/sessions warm; login necessarily warms account state", "phases": []}
+        bootstrap_before = await workload.metrics()
+        workload.database.reset_statements()
+        try:
+            report["bootstrap"] = await workload.bootstrap()
+            report["bootstrap_durations"] = window_metrics(bootstrap_before, await workload.metrics())
+            report["bootstrap_queries"] = workload.database.statements()
+            for name, sequence in (("cold_gameplay", 10000), ("warm", 20000)):
+                print(json.dumps({"stage": name, "seconds": args.seconds}), flush=True)
+                report["phases"].append(await workload.phase(name, sequence))
+                Path(args.output).write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+        except Exception as error:
+            report["incomplete"] = True
+            report["failure_type"] = type(error).__name__
+            report["bootstrap_progress"] = workload.bootstrap_progress
+            try:
+                report["failure_durations"] = window_metrics(bootstrap_before, await workload.metrics())
+                report["failure_queries"] = workload.database.statements()
+            except Exception:
+                report["failure_metrics_unavailable"] = True
             Path(args.output).write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+            raise
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     print(json.dumps({"command": args.command, "output": args.output, "players": args.players, "phases": len(report.get("phases", []))}))

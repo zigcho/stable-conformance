@@ -103,5 +103,7 @@ def window_metrics(before: dict, after: dict) -> dict:
                 if value >= math.ceil(count * fraction):
                     return bound if math.isfinite(bound) else "overflow"
             return "inconsistent_snapshot"
-        operations[name] = {"count": count, "p50_seconds_upper": quantile(.5), "p95_seconds_upper": quantile(.95), "p99_seconds_upper": quantile(.99), "counter_reset": count < 0}
+        sum_key = f'zigcho_duration_seconds_sum{{operation="{name}"}}'
+        total = after.get(sum_key, 0) - before.get(sum_key, 0)
+        operations[name] = {"count": count, "total_seconds": total, "mean_seconds": total / count if count > 0 else None, "p50_seconds_upper": quantile(.5), "p95_seconds_upper": quantile(.95), "p99_seconds_upper": quantile(.99), "counter_reset": count < 0 or total < 0}
     return operations
