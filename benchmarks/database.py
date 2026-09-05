@@ -50,7 +50,7 @@ class Database:
         csv_writer = csv.writer(output, lineterminator="\n")
         for index in range(maps):
             fixture = beatmap(index)
-            csv_writer.writerow([fixture.id, fixture.id, fixture.md5, "zigcho benchmark", f"isolated workload {index}", "synthetic", "bench_0", 3, True, fixture.duration_ms // 1000, fixture.objects, 0, 150, 4, 8, 6, 5, "\\x" + fixture.data.hex(), fixture.objects, USER_BASE, fixture.duration_ms // 1000])
+            csv_writer.writerow([fixture.id, fixture.id, fixture.md5, "zigcho benchmark", f"isolated workload {index}", "synthetic", "bench_0", 3, True, fixture.duration_ms // 1000, fixture.objects, 0, 150, 4, 8, 6, 5, "\\x" + fixture.data.hex(), fixture.objects, None, fixture.duration_ms // 1000])
         self.sql("COPY zigcho.beatmaps(id,set_id,md5,artist,title,version,creator,status,status_frozen,total_length,max_combo,mode,bpm,cs,ar,od,hp,osu_file,count_circles,creator_id,hit_length) FROM STDIN WITH CSV;\n" + output.getvalue() + "\\.\n")
         self.sql(f"""
             INSERT INTO zigcho.scores(user_id,map_md5,mode,mods,score,pp,accuracy,max_combo,n300,n100,n50,nmiss,ngeki,nkatu,perfect,passed,checksum,rank_namespace,best,time_elapsed,submitted_at)
