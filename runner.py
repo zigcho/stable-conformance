@@ -447,7 +447,7 @@ def _run_step(
 
 
 def _score_field_differences(left, right):
-    # Diagnostic field names only. The full comparison above stays authoritative;
+    # Bounded diagnostics. The full comparison above stays authoritative;
     # no formatting, numeric values or response bytes are normalized away.
     if not isinstance(left, str) or not isinstance(right, str):
         return []
@@ -460,8 +460,22 @@ def _score_field_differences(left, right):
                     result.setdefault((line_index, key), []).append(value)
         return result
     a, b = fields(left), fields(right)
-    return [{"line": line, "field": key} for line, key in sorted(a.keys() | b.keys())
-            if a.get((line, key)) != b.get((line, key))][:64]
+    output = []
+    metric_fields = {prefix + suffix for prefix in ("accuracy", "pp", "rank", "rankedScore", "totalScore", "maxCombo")
+                     for suffix in ("Before", "After")}
+    for line, key in sorted(a.keys() | b.keys()):
+        lhs, rhs = a.get((line, key)), b.get((line, key))
+        if lhs == rhs:
+            continue
+        item = {"line": line, "field": key}
+        if key in metric_fields and lhs is not None and rhs is not None and len(lhs) == len(rhs) == 1:
+            # Only short decimal metric values are publishable; never arbitrary
+            # response text, URLs, tokens, usernames or achievement payloads.
+            for name, value in (("left_metric", lhs[0]), ("right_metric", rhs[0])):
+                if value == "" or re.fullmatch(r"[+-]?[0-9]{1,16}(?:\.[0-9]{1,12})?", value):
+                    item[name] = value
+        output.append(item)
+    return output[:64]
 
 
 def _check_response_group(
@@ -1122,7 +1136,7 @@ def canonical_response(response: HttpResponse, spec: Mapping[str, Any]) -> dict[
 
 
 def _decode_body(body: bytes, body_format: str) -> Any:
-    if body_format == "user_id_lines":
+    if body_format in {"user_id_lines", "unordered_user_id_lines"}:
         lines = body.split(b"\n") if body else []
         trailing = bool(lines and lines[-1] == b"")
         if trailing:
@@ -1132,6 +1146,8 @@ def _decode_body(body: bytes, body_format: str) -> Any:
             if not re.fullmatch(rb"[1-9][0-9]{0,9}", line) or int(line) > 2147483647:
                 raise TranscriptError("invalid user id in legacy friends response")
             users.append({"user_id": int(line)})
+        if body_format == "unordered_user_id_lines":
+            users.sort(key=lambda user: user["user_id"])
         return {"users": users, "trailing_newline": trailing}
     if body_format == "binary":
         return {"encoding": "base64", "value": base64.b64encode(body).decode("ascii")}
@@ -1181,7 +1197,7 @@ def _check_expectations(
     } & set(response_spec)
     if text_expectations:
         body = canonical.get("body")
-        if response_spec.get("format") == "user_id_lines" and isinstance(body, dict):
+        if response_spec.get("format") in {"user_id_lines", "unordered_user_id_lines"} and isinstance(body, dict):
             body = "\n".join(str(user["user_id"]) for user in body["users"])
         if not isinstance(body, str):
             raise TranscriptError("text expectations require a decoded text response body")

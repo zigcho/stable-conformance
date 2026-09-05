@@ -21,7 +21,7 @@ from strict_json import StrictJsonError, load_path
 SCHEMA_VERSION = 1
 _ID = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _PLACEHOLDER = re.compile(r"{{([a-zA-Z_][a-zA-Z0-9_.-]*)}}")
-_FORMATS = {"bancho_packets", "binary", "json", "text", "user_id_lines"}
+_FORMATS = {"bancho_packets", "binary", "json", "text", "user_id_lines", "unordered_user_id_lines"}
 _CATEGORIES = {"legacy-web", "malformed-input", "policy-matrix", "stable-packets"}
 _SOURCE_ATTESTATIONS = {"reference-presence-request-all-shadowed-set-routing"}
 _RESPONSE_KEYS = {
@@ -276,7 +276,7 @@ def validate_transcript(value: Any, *, source: str = "<transcript>") -> None:
             "expect_text_lines_include_variables",
             "expect_text_not_contains",
         } & set(response) and body_format != "text" and not (
-            body_format == "user_id_lines" and not {
+            body_format in {"user_id_lines", "unordered_user_id_lines"} and not {
                 "expect_text_contains", "expect_text_equals", "expect_text_not_contains"
             } & set(response)
         ):

@@ -853,7 +853,7 @@
         "headers": { "User-Agent": "osu!" }
       },
       "response": {
-        "format": "user_id_lines",
+        "format": "unordered_user_id_lines",
         "expect_status": 200,
         "expect_text_lines_exclude_variables": ["stable_peer_user_id"],
         "compare": { "status": true, "content_type": false, "body": true }
@@ -889,7 +889,7 @@
         "headers": { "User-Agent": "osu!" }
       },
       "response": {
-        "format": "user_id_lines",
+        "format": "unordered_user_id_lines",
         "expect_status": 200,
         "expect_text_lines_include_variables": ["stable_peer_user_id"],
         "compare": { "status": true, "content_type": false, "body": true }
@@ -925,7 +925,7 @@
         "headers": { "User-Agent": "osu!" }
       },
       "response": {
-        "format": "user_id_lines",
+        "format": "unordered_user_id_lines",
         "expect_status": 200,
         "expect_text_lines_exclude_variables": ["stable_peer_user_id"],
         "compare": { "status": true, "content_type": false, "body": true }

@@ -63,7 +63,9 @@ for manually provisioned servers, use a frozen upstream and matching logical use
 
 login lists channels; it does not join the chat observer to them. the isolated runner explicitly parts and joins the peer before the chat case, checks the actual join acknowledgement, then drains setup traffic. reconnect checks retain the original login's protocol-version/user-id/privileges order and compare the whole bootstrap. the friends readbacks map only the known bot id, preserving the human friend list and add/remove checks.
 
-score response failures now list the differing field names without exposing their values. the raw response comparison still fails on formatting, score, pp or achievement differences; this is diagnostics, not a normalization rule.
+score response failures list the differing field names and short decimal score/stat metrics. arbitrary text, URLs and achievement payloads stay redacted. the raw response comparison still fails on formatting, score, pp or achievement differences; this is diagnostics, not a normalization rule.
+
+the social friends readbacks explicitly use `unordered_user_id_lines`: bancho.py iterates a set, while Zigcho can append kai after human friends. this format sorts ids before the declared bot mapping, but keeps every entry, including duplicates, and the trailing-newline flag. it does not change ordered packet or leaderboard comparisons.
 
 never use `--allow-mutating` against production. score uploads, screenshots, comments, favourites, ratings and read marks all change state.
 

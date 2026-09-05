@@ -15,7 +15,10 @@ from transcript import TranscriptError
 class LiveFixtureTests(unittest.TestCase):
     def test_score_diagnostics_keep_values_private_and_do_not_hide_formatting(self):
         self.assertEqual(_score_field_differences("ppAfter:3.000|approvedDate:", "ppAfter:3.0|approvedDate:private"),
-                         [{"line": 0, "field": "approvedDate"}, {"line": 0, "field": "ppAfter"}])
+                         [{"line": 0, "field": "approvedDate"},
+                          {"line": 0, "field": "ppAfter", "left_metric": "3.000", "right_metric": "3.0"}])
+        self.assertEqual(_score_field_differences("ppAfter:private-value", "ppAfter:other-private-value"),
+                         [{"line": 0, "field": "ppAfter"}])
 
     def test_friend_membership_checks_survive_the_explicit_bot_mapping(self):
         transcript = json.loads((Path(__file__).resolve().parents[1] / "transcripts/packet-session-presence-chat.json").read_text())
@@ -24,11 +27,16 @@ class LiveFixtureTests(unittest.TestCase):
             states = {}
             for name, bot in (("zigcho", 3), ("reference", 1)):
                 client = Mock()
-                body = f"{bot}\n{10002 if wrong_peer else 10001}".encode()
+                ids = [bot, 10002 if wrong_peer else 10001]
+                if name == "zigcho":
+                    ids.reverse()
+                body = "\n".join(map(str, ids)).encode()
                 client.request.return_value = HttpResponse(200, "OK", {}, body, 1.0)
                 states[name] = TargetState(name, client, {"stable_bot_user_id": bot, "stable_peer_user_id": 10001,
                     "stable_primary_username": "fixture", "stable_primary_password_md5": "fixture"})
             self.assertEqual(_run_step({}, step, states, b"fixture-key", {})["status"], "failed" if wrong_peer else "passed")
+        duplicate = _decode_body(b"10001\n3\n10001", "unordered_user_id_lines")
+        self.assertEqual([user["user_id"] for user in duplicate["users"]], [3, 10001, 10001])
 
     def test_reconnect_allows_packet_types_not_duplicate_bootstrap_contents(self):
         for filename, step_id, variable in (
