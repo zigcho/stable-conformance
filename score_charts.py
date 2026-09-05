@@ -72,6 +72,9 @@ def compare(canonical, states, case_id, step_id):
                 raise TranscriptError(f"{target} score chart has invalid map counters")
         if not re.fullmatch(r"[1-9][0-9]{0,18}", rows[1]["onlineScoreId"]):
             raise TranscriptError(f"{target} score chart has invalid score identity")
+        captured = "delayed_submitted_score_id" if index == 18 else "submitted_score_id"
+        if variables.get(captured) != int(rows[1]["onlineScoreId"]):
+            raise TranscriptError(f"{target} score identity does not match its captured reply")
         for row in rows[1:]:
             if row["ppAfter"] and not re.fullmatch(r"[0-9]{1,12}(?:\.[0-9]{1,3})?", row["ppAfter"]):
                 raise TranscriptError(f"{target} score chart has invalid pp framing")
@@ -95,6 +98,7 @@ def compare(canonical, states, case_id, step_id):
             row["ppAfter"] = "<product-pp-not-compared>"
         rows[2]["rankAfter"] = "<product-ranking-not-compared>"
         rows[2]["achievements-new"] = "<catalogue-content-not-compared>"
+        rows[1]["onlineScoreId"] = "<captured-target-score-id>"
         projected[target]["body"] = rows
     return projected, {
         "contract": CONTRACT,

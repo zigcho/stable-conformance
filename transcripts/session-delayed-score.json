@@ -143,6 +143,9 @@
         },
         "body": { "encoding": "base64", "value": "{{delayed_score_multipart_body_b64}}" }
       },
+      "capture": [
+        { "from": "pipe_field", "name": "onlineScoreId", "as": "delayed_submitted_score_id", "type": "int", "secret": false }
+      ],
       "response": {
         "score_chart_contract": "first-perfect-nm-20260905",
         "format": "text",

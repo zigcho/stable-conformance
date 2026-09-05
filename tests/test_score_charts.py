@@ -30,7 +30,8 @@ def fixture(target, index=18):
 
 class ScoreChartTests(unittest.TestCase):
     def compare_fixture(self, bodies, index=18):
-        states = {target: SimpleNamespace(variables={"stable_delayed_user_id" if index == 18 else "user_id": 10000 + index}) for target in bodies}
+        states = {target: SimpleNamespace(variables={"stable_delayed_user_id" if index == 18 else "user_id": 10000 + index,
+                  "delayed_submitted_score_id" if index == 18 else "submitted_score_id": 2}) for target in bodies}
         return compare(bodies, states, "session-delayed-score" if index == 18 else "route-fixture-write", "delayed-submit" if index == 18 else "submit-score")
 
     def test_product_values_are_not_equality_requirements(self):
@@ -47,10 +48,18 @@ class ScoreChartTests(unittest.TestCase):
             client.request.return_value = HttpResponse(200, "OK", {}, fixture(target).encode(), 1.0)
             states[target] = TargetState(target, client, {"stable_delayed_user_id": 10018})
         step = {"id": "delayed-submit", "request": {"method": "POST", "path": "/web/osu-submit-modular-selector.php"},
+                "capture": [{"from": "pipe_field", "name": "onlineScoreId", "as": "delayed_submitted_score_id", "type": "int", "secret": False}],
                 "response": {"format": "text", "expect_status": 200, "score_chart_contract": "first-perfect-nm-20260905"}}
         report = _run_step({"id": "session-delayed-score"}, step, states, b"fixture-key", {})
         self.assertEqual(report["status"], "passed")
         self.assertFalse(report["score_contract"]["calculator_equivalence"])
+        states["reference"].client.request.return_value = HttpResponse(200, "OK", {}, fixture("reference").replace("onlineScoreId:2", "onlineScoreId:7").encode(), 1.0)
+        # Separate auto-increment sequences are identities, not gameplay values.
+        for state in states.values():
+            state.variables.pop("delayed_submitted_score_id", None)
+        report = _run_step({"id": "session-delayed-score"}, step, states, b"fixture-key", {})
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(states["reference"].variables["delayed_submitted_score_id"], 7)
 
     def test_wrong_shared_values_and_broken_framing_still_fail(self):
         original = {target: {"status": 200, "body": fixture(target)} for target in ("zigcho", "reference")}
@@ -59,13 +68,14 @@ class ScoreChartTests(unittest.TestCase):
                          ("rankedScoreAfter:9000667", "rankedScoreAfter:0"),
                          ("ppAfter:126.064", "ppAfter:nan"),
                          ("rankBefore:", "rankBefore:0"),
+                         ("onlineScoreId:2", "onlineScoreId:3"),
                          ("approvedDate:2026-09-05 00:00:00", "approvedDate:"),
                          ("|\n", "\n"), ("|onlineScoreId:2", "|onlineScoreId:2|onlineScoreId:2")):
             bodies = copy.deepcopy(original)
             bodies["zigcho"]["body"] = bodies["zigcho"]["body"].replace(old, new, 1)
             with self.subTest(old=old), self.assertRaises(TranscriptError):
                 self.compare_fixture(bodies)
-        for old, new in (("beatmapPlaycount:1", "beatmapPlaycount:2"), ("onlineScoreId:2", "onlineScoreId:3")):
+        for old, new in (("beatmapPlaycount:1", "beatmapPlaycount:2"),):
             bodies = copy.deepcopy(original)
             bodies["zigcho"]["body"] = bodies["zigcho"]["body"].replace(old, new)
             projected, _ = self.compare_fixture(bodies)
