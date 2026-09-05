@@ -3,6 +3,10 @@ name: stable conformance contracts
 on:
   workflow_call:
     inputs:
+      harness_ref:
+        description: exact harness commit to execute
+        required: true
+        type: string
       zigcho_ref:
         description: exact zigcho commit to inspect
         required: true
@@ -36,7 +40,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: zigcho/stable-conformance
-          ref: ${{ inputs.zigcho_ref && 'main' || github.sha }}
+          ref: ${{ inputs.harness_ref || github.sha }}
           path: harness
           persist-credentials: false
 
