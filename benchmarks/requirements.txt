@@ -1,0 +1,2 @@
+# Optional benchmark-only dependency. Normal conformance checks stay stdlib-only.
+py3rijndael==0.3.3 --hash=sha256:b6655a3ebff3a10540eaed049e8788eea3ac93d6b71b3a6ac2b00224bbece9a8

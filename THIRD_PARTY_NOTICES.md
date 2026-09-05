@@ -29,3 +29,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+# optional benchmark cipher
+
+the isolated mixed-load runner uses py3rijndael 0.3.3 (MIT), by its upstream contributors, for Stable's 256-bit-block Rijndael score payloads. it is installed separately with a pinned source archive hash; normal conformance checks do not depend on it. source and license: https://github.com/meyt/py3rijndael. it is not vendored here.
