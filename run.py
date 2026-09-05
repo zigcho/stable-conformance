@@ -188,7 +188,9 @@ def main(argv: list[str] | None = None, *, prepare_case=None) -> int:
         if args.report:
             args.report.parent.mkdir(parents=True, exist_ok=True)
             args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        failed = report["summary"]["failed"] > 0 or (args.require_all and report["summary"]["skipped"] > 0)
+        failed = (report["summary"]["failed"] > 0
+                  or report["summary"].get("failed_preflights", 0) > 0
+                  or (args.require_all and report["summary"]["skipped"] > 0))
         return _emit(report, failed=failed)
     except (ConfigError, OSError, TranscriptError, ValueError, json.JSONDecodeError) as exc:
         return _emit({"schema": 1, "status": "failed", "error": str(exc)}, failed=True)

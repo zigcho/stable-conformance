@@ -58,6 +58,8 @@ def build_config(ports, snapshot, commit):
         "zigcho_commit": commit, "reference_commit": PIN,
     }
     template["variables"].update(client_version="b" + f.VERSION, search_query="isolated workload 0")
+    score_payloads = {prefix: f.score_request(index, 1, f.beatmap(0))
+                      for prefix, index in (("score", 16), ("delayed_score", 18))}
     all_tokens = {}
     for name, port in ports.items():
         tokens = {}
@@ -92,7 +94,7 @@ def build_config(ports, snapshot, commit):
                       stable_mp_match_password="fixture-room", stable_mp_match_password_updated="fixture-room-updated",
                       stable_tournament_match_id=0, stable_restricted_channel="#osu", stable_silenced_public_channel="#osu")
         for prefix, index in (("score", 16), ("delayed_score", 18)):
-            body, content_type, _, _ = f.score_request(index, 1, map_)
+            body, content_type, _, _ = score_payloads[prefix]
             values[prefix + "_multipart_body_b64"] = base64.b64encode(body).decode()
             values[prefix + "_multipart_content_type"] = content_type
         body, content_type = screenshot(16)

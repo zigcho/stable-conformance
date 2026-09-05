@@ -7,6 +7,10 @@ GitHub runner. it refuses to run on the Mac or against production.
 the complete corpus runs with `--require-all --continue-on-failure`. no transcript
 is removed to get a green result. a case still stops at its first failed step;
 the report must not describe those later steps as tested.
+if both status replies prove the expected authenticated identity but their fields
+differ, `--continue-on-failure` records that failed preflight and still exercises
+the cases. the exit status remains failed, even if every case passes. missing,
+wrong or unauthenticated identities still stop all mutations. no mismatch is waived.
 
 the proxy only supplies each application's expected Host and synthetic location
 headers. it does not change response bodies. the local mirror is upstream fixture

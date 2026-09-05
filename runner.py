@@ -220,7 +220,14 @@ def run_transcripts(
             digest_key,
         )
         globally_preflighted = True
-        if any(preflight["status"] != "passed" for preflight in fixture_preflights):
+        failed_preflights = [preflight for preflight in fixture_preflights if preflight["status"] != "passed"]
+        # A matching authenticated identity is mandatory before mutation. A
+        # semantic mismatch between two authenticated replies is still a test
+        # failure, but --continue-on-failure can collect the remaining evidence.
+        may_continue = options.continue_on_failure and all(
+            preflight.get("identities_verified") is True for preflight in fixture_preflights
+        )
+        if failed_preflights and not may_continue:
             return {
                 "schema": 1,
                 "mode": "differential" if len(target_names) == 2 else "smoke",
@@ -254,6 +261,7 @@ def run_transcripts(
         "total": len(cases),
     }
     summary["required_skips"] = summary["skipped"] if options.require_all else 0
+    summary["failed_preflights"] = sum(preflight["status"] != "passed" for preflight in fixture_preflights)
     return {
         "schema": 1,
         "mode": "differential" if len(target_names) == 2 else "smoke",
@@ -615,6 +623,7 @@ def _run_session_preflights(
             "token_variable": binding["token"],
             "user_id_variable": binding["user_id"],
             "status": "failed" if failed_target is not None or comparison_difference is not None else "passed",
+            "identities_verified": failed_target is None,
             "targets": targets,
         }
         if failed_target is not None:
