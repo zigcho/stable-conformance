@@ -57,7 +57,9 @@ python3 run.py run \
   --report /private/path/stable-conformance-report.json
 ```
 
-the harness does not install or start bancho.py. give it an isolated reference instance with a frozen upstream and the same logical users, maps, scores, friends, rooms and server channels as the Zigcho fixture. set the reference's `SEASONAL_BGS` to the JSON list `[]`; Zigcho intentionally returns that same empty seasonal list. the full corpus assumes one fresh mirrored fixture snapshot: its chat, malformed-input, three-session multiplayer, delayed-score and reconnect accounts are deliberately separate, and the multiplayer invitee is already a real `#lobby` observer. reset that snapshot before another full run.
+the plain CLI expects both servers to already exist. the new [isolated runner](integration/README.md) and `isolated live Stable comparison` workflow provision them on GitHub from an exact successful server release. they use a fresh synthetic fixture and retain failures as well as successes. this workflow is separate from the inventory-only check.
+
+for manually provisioned servers, use a frozen upstream and matching logical users, maps, scores, friends, rooms and channels. the reference needs an actual empty `SEASONAL_BGS` list: its environment parser is CSV, so the string `[]` does **not** do that. the isolated bootstrap supplies the typed setting. chat, malformed-input, multiplayer, delayed-score and reconnect accounts are separate, and the multiplayer invitee starts as a real `#lobby` observer. reset the fixture before another full run.
 
 never use `--allow-mutating` against production. score uploads, screenshots, comments, favourites, ratings and read marks all change state.
 
@@ -88,7 +90,7 @@ packet 98 has one deliberately split proof because the pinned reference iterates
 
 that request is the final step of the final manifest scenario, after primary logout and the peer's logout observation. bancho.py may leave the bundle queued on any unrestricted session, but the complete corpus performs no later poll that could consume it. reset the mirrored fixture snapshot before another full run as described above.
 
-the pinned source trees still have real differences this harness is meant to fail on. Zigcho is missing normal public-channel join/part information, writes channel counts as `i32` instead of the reference `u16`, uses generic spectator and multiplayer channel topics, omits bancho.py's match-created bot message, and delivers the lobby `new_match` packet differently. none of those are policy exceptions. a green two-target run means fixing them, not hiding them here.
+the review at Zigcho `6581496` identified public-channel join/part updates, `i32` instead of `u16` channel counts, generic room/spectator topics, the missing match-created bot message and different lobby announcements. candidate `4432170` implements fixes for those findings. that is a source change, not evidence of complete live parity. none of these findings became a policy exception; the two-server report still has to establish what matches and what does not.
 
 write-route checks include public readbacks for favourites, ratings, comments and submitted-score replay availability. screenshot object retrieval, direct unread-state inspection, and aggregate score/stat/achievement changes are not publicly observable through the pinned Stable routes, so those side effects still need fixture database assertions outside this HTTP harness. packet 79 is checked only for its immediate registered no-output contract because pinned bancho.py stores the presence filter but never reads it.
 

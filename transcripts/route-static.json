@@ -5,7 +5,7 @@
   "mutates_state": false,
   "description": "legacy routes whose result does not require a seeded player or mutate state",
   "fixture_contract": [
-    "the pinned reference is started with SEASONAL_BGS=[] so its configured seasonal JSON exactly matches Zigcho's empty seasonal list"
+    "the pinned reference's typed SEASONAL_BGS configuration is an empty list; its CSV environment parser cannot represent this as the literal JSON string []"
   ],
   "coverage": {
     "client_packets": [],

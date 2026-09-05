@@ -13,6 +13,9 @@ import app.settings
 import app.state.sessions
 
 app.logging.configure_logging()
+# The reference env parser is CSV, not JSON: SEASONAL_BGS=[] would mean
+# ["[]"], and an empty string means [""]. Supply the actual typed fixture.
+app.settings.SEASONAL_BGS = []
 production_lifespan = api.asgi_app.router.lifespan_context
 
 

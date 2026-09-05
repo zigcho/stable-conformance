@@ -80,7 +80,7 @@ def seed(reference: Path, reference_python: Path) -> dict:
                 "score": {"id": 1, "score": 1000000, "pp": 20, "replay_sha256": hashlib.sha256(raw_replay).hexdigest()},
                 "reference_bot_id": 1, "zigcho_bot_id": 3,
                 "bot_memberships": ["#osu", "#announce"],
-                "reference_bootstrap": "real lifespan plus bot.join_channel fixture calls; packet handlers unchanged",
+                "reference_bootstrap": "typed empty seasonal config, real lifespan, then bot.join_channel fixture calls; packet handlers unchanged",
                 "asset_scope": "medal image downloads excluded; image routes are not covered",
                 "note": "Bot ids differ by product contract; comparisons do not erase them. No real users or captures are used."}
     return snapshot
