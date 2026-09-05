@@ -62,6 +62,18 @@ class Workload:
     async def poll(self, index: int, body: bytes = b"") -> Response:
         return await self.client.request("POST", "/", body, {"osu-token": self.tokens[index]}, player=index)
 
+    async def expect_packet(self, index: int, response: Response, packet_id: int, label: str) -> None:
+        # Broadcasts enter the session queue after the current poll's drain.
+        # Read the next poll rather than resending the state-changing command.
+        for attempt in range(4):
+            if not self.packets_valid(response):
+                break
+            if any(packet.packet_id == packet_id for packet in decode_packet_stream(response.body).packets):
+                return
+            if attempt < 3:
+                response = await self.poll(index)
+        raise RuntimeError(f"{label} preflight failed")
+
     async def bootstrap(self) -> dict:
         semaphore = asyncio.Semaphore(8)
         login_latencies = Series()
@@ -158,14 +170,13 @@ class Workload:
                 self.room_members.add(index)
                 await self.poll(index, f.packet(39))
             response = await self.poll(host, f.packet(44))
-            if not self.packets_valid(response) or not any(packet.packet_id == 46 for packet in decode_packet_stream(response.body).packets):
-                raise RuntimeError("multiplayer start preflight failed")
+            await self.expect_packet(host, response, 46, "multiplayer start")
             for index in range(host, host + 4):
                 response = await self.poll(index, f.packet(52))
                 if not self.packets_valid(response):
                     raise RuntimeError("multiplayer load preflight failed")
-                if index == host + 3 and not any(packet.packet_id == 53 for packet in decode_packet_stream(response.body).packets):
-                    raise RuntimeError("multiplayer all-loaded preflight failed")
+                if index == host + 3:
+                    await self.expect_packet(index, response, 53, "multiplayer all-loaded")
         return result
 
     async def submit(self, index: int, prepared) -> tuple[Response, bool, int | None]:
