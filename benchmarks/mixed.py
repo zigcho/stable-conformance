@@ -157,9 +157,15 @@ class Workload:
             for index in range(host, host + 4):
                 self.room_members.add(index)
                 await self.poll(index, f.packet(39))
-            await self.poll(host, f.packet(44, b"\x00"))
+            response = await self.poll(host, f.packet(44))
+            if not self.packets_valid(response) or not any(packet.packet_id == 46 for packet in decode_packet_stream(response.body).packets):
+                raise RuntimeError("multiplayer start preflight failed")
             for index in range(host, host + 4):
-                await self.poll(index, f.packet(52))
+                response = await self.poll(index, f.packet(52))
+                if not self.packets_valid(response):
+                    raise RuntimeError("multiplayer load preflight failed")
+                if index == host + 3 and not any(packet.packet_id == 53 for packet in decode_packet_stream(response.body).packets):
+                    raise RuntimeError("multiplayer all-loaded preflight failed")
         return result
 
     async def submit(self, index: int, prepared) -> tuple[Response, bool, int | None]:
