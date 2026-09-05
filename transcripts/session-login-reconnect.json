@@ -188,6 +188,7 @@
             "status": 200,
             "required_packet_ids": [5, 71, 75],
             "allowed_packet_ids": [5, 7, 11, 65, 71, 72, 75, 83, 89, 92, 104],
+            "allow_duplicate_packet_ids": [11, 65, 83],
             "packet_fields": [
               { "packet_id": 5, "path": "payload.user_id", "variable": "stable_login_user_id" }
             ]

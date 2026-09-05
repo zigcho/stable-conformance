@@ -1,15 +1,55 @@
+import copy
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from benchmarks.fixtures import packet
 from integration.live import packet_ids
 from integration.proxy import start
-from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets, _apply_captures, _run_step
+from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets, _apply_captures, _run_step, _check_policy_matrix
 from http_target import HttpResponse
 from transcript import TranscriptError
 
 
 class LiveFixtureTests(unittest.TestCase):
+    def test_reconnect_allows_packet_types_not_duplicate_bootstrap_contents(self):
+        for filename, step_id, variable in (
+            ("session-login-reconnect.json", "immediate-reconnect", "stable_login_user_id"),
+            ("session-delayed-score.json", "replacement-login", "stable_delayed_user_id"),
+        ):
+            transcript = json.loads((Path(__file__).resolve().parents[1] / "transcripts" / filename).read_text())
+            matrix = next(step for step in transcript["steps"] if step["id"] == step_id)["policy_matrix"]
+            packets = [{"id": packet_id, "payload": payload} for packet_id, payload in (
+                (5, {"user_id": 10000}), (71, {}), (75, {}),
+                (65, {"name": "#osu"}), (65, {"name": "#announce"}),
+                (11, {"user_id": 10000, "pp": 10}), (11, {"user_id": 10001, "pp": 20}),
+                (83, {"user_id": 10000}), (83, {"user_id": 10001}),
+            )]
+            canonical = {
+                "zigcho": {"body": {"complete": True, "packets": packets}},
+                "reference": {"body": {"complete": True, "packets": [
+                    {"id": 5, "payload": {"user_id": -1}},
+                    {"id": 24, "payload": {"message": "User already logged in."}},
+                ]}},
+            }
+            states = {name: TargetState(name, None, {variable: 10000}) for name in canonical}
+            results = {name: {"status": 200} for name in canonical}
+            baseline = matrix["compare_target_with_step"]["zigcho"]
+            history = {baseline: copy.deepcopy(canonical)}
+            _check_policy_matrix(matrix, canonical, results, states, history)
+            for mutation in ("duplicate", "changed", "missing"):
+                changed = copy.deepcopy(canonical)
+                rows = changed["zigcho"]["body"]["packets"]
+                if mutation == "duplicate":
+                    rows.append(copy.deepcopy(rows[-1]))
+                elif mutation == "changed":
+                    rows[5]["payload"]["pp"] = 999
+                else:
+                    rows.pop()
+                with self.assertRaisesRegex(TranscriptError, "changed zigcho from baseline"):
+                    _check_policy_matrix(matrix, changed, results, states, history)
+
     def test_response_capture_failure_does_not_skip_the_other_target(self):
         states = {}
         for name, body in (("zigcho", b"invalid"), ("reference", b"onlineScoreId:42")):

@@ -118,6 +118,8 @@ def score_request(index: int, sequence: int, map_: Map) -> tuple[bytes, str, str
         "iv": base64.b64encode(iv), "s": encrypted(hardware(index)),
         "pass": PASSWORD_MD5.encode(), "osuver": VERSION.encode(),
         "bmk": map_.md5.encode(), "sbk": b"", "st": str(map_.duration_ms).encode(), "ft": b"0",
+        "x": b"0", "fs": base64.b64encode(b"fixture"),
+        "c1": f"benchmark:{index}:install|benchmark:{index}:disk".encode(),
     }.items():
         part(name, value)
     body = b"".join(parts) + b"--" + boundary + b"--\r\n"
