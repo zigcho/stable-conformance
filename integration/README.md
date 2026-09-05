@@ -22,6 +22,14 @@ only when that scenario needs it. this avoids an existing tournament room breaki
 the multiplayer scenario's empty-lobby precondition. nothing drains between a
 transcript's actions except its own declared requests.
 
+login/reconnect runs before the score-mutating cases. the final chat/presence case
+refreshes its primary account through real logout/login because bancho.py caches
+rank at login; the setup records that lifecycle and validates the new identity.
+packet 98 stays last because of the separately documented reference routing bug.
+score ids are captured as exact pipe-delimited fields, not line prefixes. once
+both requests validate, a response/capture failure on one target does not prevent
+the same request reaching the other. both results stay in the failure report.
+
 the records use fake accounts, generated hardware hashes, one generated map per
 set, and a generated replay. bot identity is recorded honestly: Kai is 3, the
 pinned reference bot is 1. no response-wide normalisation hides the difference.

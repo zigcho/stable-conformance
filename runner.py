@@ -350,30 +350,38 @@ def _run_step(
 ) -> dict[str, Any]:
     results: dict[str, Any] = {}
     canonical: dict[str, Any] = {}
+    # Validate both rendered requests before either target can be mutated.
     for target_name, state in states.items():
         try:
             _validate_client_packet_request(transcript, step, state.variables)
+            prepare_request(step["request"], state.variables)
+        except (ConfigError, TranscriptError, ValueError) as exc:
+            return {"id": step["id"], "status": "failed", "targets": {},
+                    "error": _redact(str(exc), states.values()), "failed_target": target_name}
+    errors: dict[str, str] = {}
+    for target_name, state in states.items():
+        try:
             response = state.client.request(step["request"], state.variables)
-            value = canonical_response(response, step.get("response", {}))
-            _validate_server_packet_response(transcript, step, value)
-            _check_expectations(response, value, step.get("response", {}), state.variables)
-            _apply_captures(response, value, step.get("capture", []), state)
-            rules = list(transcript.get("normalizers", [])) + list(step.get("normalizers", []))
-            canonical[target_name] = apply_rules(value, rules, state.variables)
             results[target_name] = {
                 "status": response.status,
                 "bytes": len(response.body),
                 "elapsed_ms": round(response.elapsed_ms, 3),
                 "body_hmac_sha256": _body_digest(response.body, digest_key),
             }
+            value = canonical_response(response, step.get("response", {}))
+            _validate_server_packet_response(transcript, step, value)
+            _check_expectations(response, value, step.get("response", {}), state.variables)
+            _apply_captures(response, value, step.get("capture", []), state)
+            rules = list(transcript.get("normalizers", [])) + list(step.get("normalizers", []))
+            canonical[target_name] = apply_rules(value, rules, state.variables)
         except (ConfigError, NormalizationError, TranscriptError, TransportError, ValueError) as exc:
-            return {
-                "id": step["id"],
-                "status": "failed",
-                "targets": results,
-                "error": _redact(str(exc), states.values()),
-                "failed_target": target_name,
-            }
+            # A response/capture failure must not prevent the same already
+            # validated request reaching the other isolated target.
+            errors[target_name] = _redact(str(exc), states.values())
+    if errors:
+        first_target = next(iter(errors))
+        return {"id": step["id"], "status": "failed", "targets": results,
+                "error": errors[first_target], "failed_target": first_target, "target_errors": errors}
 
     target_names = list(states)
     policy_matrix = step.get("policy_matrix")
@@ -1247,6 +1255,16 @@ def _apply_captures(
                 raise TranscriptError(f"capture header {capture['name']!r} is missing")
         elif capture["from"] == "path":
             value = _get_path(canonical, capture["path"])
+        elif capture["from"] == "pipe_field":
+            body = canonical.get("body")
+            if not isinstance(body, str):
+                raise TranscriptError("pipe_field capture requires a decoded text response")
+            prefix = capture["name"] + ":"
+            matches = [field[len(prefix):] for line in body.splitlines()
+                       for field in line.split("|") if field.startswith(prefix)]
+            if len(matches) != 1 or not matches[0]:
+                raise TranscriptError(f"capture field {capture['name']!r} did not match exactly one nonempty protocol field")
+            value = matches[0]
         else:
             body = canonical.get("body")
             if not isinstance(body, str):

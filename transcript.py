@@ -689,13 +689,15 @@ def _validate_captures(captures: Any, *, where: str) -> None:
         unknown_keys = set(capture) - {"as", "from", "name", "path", "prefix", "secret", "type"}
         if unknown_keys:
             raise TranscriptError(f"{item} has unsupported key {sorted(unknown_keys)[0]!r}")
-        if capture.get("from") not in {"header", "path", "text_prefix"}:
-            raise TranscriptError(f"{item}.from must be header, path or text_prefix")
+        if capture.get("from") not in {"header", "path", "text_prefix", "pipe_field"}:
+            raise TranscriptError(f"{item}.from must be header, path, text_prefix or pipe_field")
         if not isinstance(capture.get("as"), str) or not _ID.fullmatch(capture["as"]):
             raise TranscriptError(f"{item}.as must be a safe variable name")
-        source_key = {"header": "name", "path": "path", "text_prefix": "prefix"}[capture["from"]]
+        source_key = {"header": "name", "path": "path", "text_prefix": "prefix", "pipe_field": "name"}[capture["from"]]
         if not isinstance(capture.get(source_key), str) or not capture[source_key]:
             raise TranscriptError(f"{item}.{source_key} must be a non-empty string")
+        if capture["from"] == "pipe_field" and not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", capture["name"]):
+            raise TranscriptError(f"{item}.name must be a single protocol field name")
         capture_type = capture.get("type", "string")
         if capture_type not in {"int", "string"}:
             raise TranscriptError(f"{item}.type must be int or string")

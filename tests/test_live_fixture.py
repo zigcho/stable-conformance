@@ -1,14 +1,41 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from benchmarks.fixtures import packet
 from integration.live import packet_ids
 from integration.proxy import start
-from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets
+from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets, _apply_captures, _run_step
+from http_target import HttpResponse
 from transcript import TranscriptError
 
 
 class LiveFixtureTests(unittest.TestCase):
+    def test_response_capture_failure_does_not_skip_the_other_target(self):
+        states = {}
+        for name, body in (("zigcho", b"invalid"), ("reference", b"onlineScoreId:42")):
+            client = Mock()
+            client.request.return_value = HttpResponse(200, "OK", {}, body, 1.0)
+            states[name] = TargetState(name, client, {}, allows_mutation=True)
+        step = {"id": "submit", "request": {"method": "POST", "path": "/"},
+                "response": {"format": "text"},
+                "capture": [{"from": "pipe_field", "name": "onlineScoreId", "as": "score_id", "type": "int"}]}
+        result = _run_step({}, step, states, b"fixture-key", {})
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["failed_target"], "zigcho")
+        self.assertEqual(set(result["targets"]), set(states))
+        for state in states.values():
+            self.assertEqual(state.client.request.call_count, 1)
+
+    def test_score_id_capture_reads_one_exact_pipe_field(self):
+        capture = {"from": "pipe_field", "name": "onlineScoreId", "as": "score_id", "type": "int", "secret": False}
+        state = TargetState("fixture", None, {})
+        body = "beatmapId:1|\n|chartId:beatmap|onlineScoreId:42|\n|chartId:overall|ppAfter:20"
+        _apply_captures(None, {"body": body}, [capture], state)
+        self.assertEqual(state.variables["score_id"], 42)
+        for invalid in ("notOnlineScoreId:42", "onlineScoreId:", "onlineScoreId:2|onlineScoreId:3", "onlineScoreId:no"):
+            with self.assertRaises(TranscriptError):
+                _apply_captures(None, {"body": invalid}, [capture], state)
+
     def test_boundary_evidence_keeps_actual_packet_order(self):
         self.assertEqual(packet_ids(packet(65, b"fixture") + packet(66, b"fixture")), [65, 66])
         with self.assertRaises(RuntimeError):

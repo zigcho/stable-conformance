@@ -213,6 +213,22 @@ def main():
                     status, _, body = request(port, f.create_match(19, 0, f.beatmap(0)), tokens[name]["tournament_host"])
                     actions.append({"action": "create-tournament-fixture-room", "status": status, "packet_ids": packet_ids(body)})
                 if case_id == "packet-session-presence-chat":
+                    # The reference caches rank at login. Earlier score cases
+                    # change Redis ranks, so establish this case's fresh-rank
+                    # precondition through logout/login on both real servers.
+                    status, _, body = request(port, f.packet(2, bytes(4)), tokens[name]["primary"])
+                    actions.append({"action": "logout-primary-before-rank-refresh", "status": status, "packet_ids": packet_ids(body)})
+                    status, headers, body = request(port, f.login(0))
+                    decoded = decode_packet_stream(body)
+                    user_ids = [int.from_bytes(p.payload, "little", signed=True) for p in decoded.packets
+                                if p.packet_id == 5 and len(p.payload) == 4]
+                    token = headers.get("cho-token")
+                    if status != 200 or not decoded.complete or user_ids != [f.USER_BASE] or not token or token == "no":
+                        raise RuntimeError(f"{name} failed the fresh primary-session precondition")
+                    tokens[name]["primary"] = token
+                    states[name].variables["stable_primary_token"] = token
+                    states[name].secret_values.add(token)
+                    actions.append({"action": "login-primary-for-current-rank", "status": status, "user_id": f.USER_BASE})
                     status, _, body = request(port, f.packet(78, f.string("#osu")), tokens[name]["primary"])
                     actions.append({"action": "establish-primary-not-joined-baseline", "status": status, "packet_ids": packet_ids(body)})
                 drains = []
@@ -227,6 +243,10 @@ def main():
                                    "packet_ids": [packet.packet_id for packet in decoded.packets],
                                    "body_sha256": hashlib.sha256(body).hexdigest()})
                 evidence["targets"][name] = {"actions": actions, "drained": drains}
+            if case_id == "packet-session-presence-chat":
+                # Pinned Stable ignores logout during the first login second.
+                time.sleep(1.05)
+                evidence["login_age_settle_seconds"] = 1.05
             return evidence
 
         (args.reports / "runtime-attestation.json").write_text(json.dumps({

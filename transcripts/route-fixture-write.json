@@ -260,7 +260,7 @@
         "body": { "encoding": "base64", "value": "{{score_multipart_body_b64}}" }
       },
       "capture": [
-        { "from": "text_prefix", "prefix": "onlineScoreId:", "as": "submitted_score_id", "type": "int", "secret": false }
+        { "from": "pipe_field", "name": "onlineScoreId", "as": "submitted_score_id", "type": "int", "secret": false }
       ],
       "response": {
         "format": "text",
