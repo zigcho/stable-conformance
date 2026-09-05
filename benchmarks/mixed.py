@@ -125,6 +125,13 @@ class Workload:
             raise RuntimeError("score preflight did not persist and archive one canonical score with replay")
         result["idempotent_score_retry"] = stored
 
+        async def join_channels(index):
+            async with semaphore:
+                response = await self.poll(index, f.packet(63, f.string("#osu")) + f.packet(63, f.string("#announce")))
+                if not self.packets_valid(response) or sum(packet.packet_id == 64 for packet in decode_packet_stream(response.body).packets) != 2:
+                    raise RuntimeError("public channel join preflight failed")
+        await asyncio.gather(*(join_channels(index) for index in range(self.args.players)))
+
         for host in range(5):
             self.spectator_hosts.add(host)
             for offset in range(3):
