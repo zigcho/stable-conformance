@@ -4,15 +4,32 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from benchmarks.fixtures import packet
-from integration.live import packet_ids
+from benchmarks.fixtures import packet, string
+from integration.live import packet_ids, join_fixture_channel
 from integration.proxy import start
-from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets, _apply_captures, _run_step, _check_policy_matrix
+from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets, _apply_captures, _run_step, _check_policy_matrix, _score_field_differences
 from http_target import HttpResponse
 from transcript import TranscriptError
 
 
 class LiveFixtureTests(unittest.TestCase):
+    def test_score_diagnostics_keep_values_private_and_do_not_hide_formatting(self):
+        self.assertEqual(_score_field_differences("ppAfter:3.000|approvedDate:", "ppAfter:3.0|approvedDate:private"),
+                         [{"line": 0, "field": "approvedDate"}, {"line": 0, "field": "ppAfter"}])
+
+    def test_friend_membership_checks_survive_the_explicit_bot_mapping(self):
+        transcript = json.loads((Path(__file__).resolve().parents[1] / "transcripts/packet-session-presence-chat.json").read_text())
+        step = next(step for step in transcript["steps"] if step["id"] == "friend-add-readback")
+        for wrong_peer in (False, True):
+            states = {}
+            for name, bot in (("zigcho", 3), ("reference", 1)):
+                client = Mock()
+                body = f"{bot}\n{10002 if wrong_peer else 10001}".encode()
+                client.request.return_value = HttpResponse(200, "OK", {}, body, 1.0)
+                states[name] = TargetState(name, client, {"stable_bot_user_id": bot, "stable_peer_user_id": 10001,
+                    "stable_primary_username": "fixture", "stable_primary_password_md5": "fixture"})
+            self.assertEqual(_run_step({}, step, states, b"fixture-key", {})["status"], "failed" if wrong_peer else "passed")
+
     def test_reconnect_allows_packet_types_not_duplicate_bootstrap_contents(self):
         for filename, step_id, variable in (
             ("session-login-reconnect.json", "immediate-reconnect", "stable_login_user_id"),
@@ -20,8 +37,10 @@ class LiveFixtureTests(unittest.TestCase):
         ):
             transcript = json.loads((Path(__file__).resolve().parents[1] / "transcripts" / filename).read_text())
             matrix = next(step for step in transcript["steps"] if step["id"] == step_id)["policy_matrix"]
+            initial = transcript["steps"][0]["policy_matrix"]["targets"]["zigcho"]
+            self.assertEqual(matrix["targets"]["zigcho"]["required_packet_ids"], initial["required_packet_ids"][:3])
             packets = [{"id": packet_id, "payload": payload} for packet_id, payload in (
-                (5, {"user_id": 10000}), (71, {}), (75, {}),
+                (75, {}), (5, {"user_id": 10000}), (71, {}),
                 (65, {"name": "#osu"}), (65, {"name": "#announce"}),
                 (11, {"user_id": 10000, "pp": 10}), (11, {"user_id": 10001, "pp": 20}),
                 (83, {"user_id": 10000}), (83, {"user_id": 10001}),
@@ -49,6 +68,17 @@ class LiveFixtureTests(unittest.TestCase):
                     rows.pop()
                 with self.assertRaisesRegex(TranscriptError, "changed zigcho from baseline"):
                     _check_policy_matrix(matrix, changed, results, states, history)
+
+    def test_peer_setup_requires_a_real_channel_join_acknowledgement(self):
+        for acknowledgement in (packet(64, string("#osu")), b"", packet(64, string("#wrong"))):
+            with patch("integration.live.request", side_effect=[(200, {}, b""), (200, {}, acknowledgement)]) as request:
+                if acknowledgement == packet(64, string("#osu")):
+                    actions = join_fixture_channel(18090, "fixture-token", "#osu")
+                    self.assertEqual(actions[-1]["packet_ids"], [64])
+                else:
+                    with self.assertRaises(RuntimeError):
+                        join_fixture_channel(18090, "fixture-token", "#osu")
+                self.assertEqual(request.call_args_list[-1].args[1], packet(63, string("#osu")))
 
     def test_response_capture_failure_does_not_skip_the_other_target(self):
         states = {}

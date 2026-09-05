@@ -49,6 +49,21 @@ def packet_ids(body):
     return [packet.packet_id for packet in decoded.packets]
 
 
+def join_fixture_channel(port, token, channel):
+    actions = []
+    for action, packet_id in (("reset-peer-channel-membership", 78), ("join-peer-channel", 63)):
+        status, _, body = request(port, f.packet(packet_id, f.string(channel)), token)
+        decoded = decode_packet_stream(body)
+        if status != 200 or not decoded.complete:
+            raise RuntimeError("peer channel setup failed")
+        if packet_id == 63:
+            acknowledgements = [p.payload for p in decoded.packets if p.packet_id == 64]
+            if acknowledgements != [f.string(channel)]:
+                raise RuntimeError("peer channel setup did not acknowledge the requested channel")
+        actions.append({"action": action, "status": status, "packet_ids": packet_ids(body)})
+    return actions
+
+
 def build_config(ports, snapshot, commit):
     template = json.loads((HERE / "config.example.json").read_text())
     template["metadata"] = {
@@ -213,6 +228,7 @@ def main():
                     status, _, body = request(port, f.create_match(19, 0, f.beatmap(0)), tokens[name]["tournament_host"])
                     actions.append({"action": "create-tournament-fixture-room", "status": status, "packet_ids": packet_ids(body)})
                 if case_id == "packet-session-presence-chat":
+                    actions.extend(join_fixture_channel(port, tokens[name]["peer"], states[name].variables["stable_public_channel"]))
                     # The reference caches rank at login. Earlier score cases
                     # change Redis ranks, so establish this case's fresh-rank
                     # precondition through logout/login on both real servers.

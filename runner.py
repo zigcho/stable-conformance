@@ -429,17 +429,39 @@ def _run_step(
         left_name, right_name = target_names
         difference = first_difference(canonical[left_name], canonical[right_name])
         if difference is not None:
-            return {
+            failure = {
                 "id": step["id"],
                 "status": "failed",
                 "targets": results,
                 "difference": _safe_difference(difference, states.values()),
             }
+            if step["request"].get("path") == "/web/osu-submit-modular-selector.php":
+                failure["score_field_differences"] = _score_field_differences(
+                    canonical[left_name].get("body"), canonical[right_name].get("body"))
+            return failure
     canonical_history[step["id"]] = copy.deepcopy(canonical)
     report = {"id": step["id"], "status": "passed", "targets": results}
     if defer_differential_comparison:
         report["comparison"] = "deferred_to_causal_response_group"
     return report
+
+
+def _score_field_differences(left, right):
+    # Diagnostic field names only. The full comparison above stays authoritative;
+    # no formatting, numeric values or response bytes are normalized away.
+    if not isinstance(left, str) or not isinstance(right, str):
+        return []
+    def fields(body):
+        result = {}
+        for line_index, line in enumerate(body.splitlines()):
+            for field in line.split("|"):
+                key, separator, value = field.partition(":")
+                if separator and re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{0,63}", key):
+                    result.setdefault((line_index, key), []).append(value)
+        return result
+    a, b = fields(left), fields(right)
+    return [{"line": line, "field": key} for line, key in sorted(a.keys() | b.keys())
+            if a.get((line, key)) != b.get((line, key))][:64]
 
 
 def _check_response_group(
@@ -1159,6 +1181,8 @@ def _check_expectations(
     } & set(response_spec)
     if text_expectations:
         body = canonical.get("body")
+        if response_spec.get("format") == "user_id_lines" and isinstance(body, dict):
+            body = "\n".join(str(user["user_id"]) for user in body["users"])
         if not isinstance(body, str):
             raise TranscriptError("text expectations require a decoded text response body")
         if "expect_text_equals" in response_spec and body != response_spec["expect_text_equals"]:

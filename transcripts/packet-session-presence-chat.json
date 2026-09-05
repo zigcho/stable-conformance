@@ -74,7 +74,8 @@
     "stable_peer_token",
     "stable_peer_user_id",
     "stable_peer_username",
-    "stable_public_channel"
+    "stable_public_channel",
+    "stable_bot_user_id"
   ],
   "session_bindings": [
     { "token": "stable_primary_token", "user_id": "stable_primary_user_id" },
@@ -852,11 +853,12 @@
         "headers": { "User-Agent": "osu!" }
       },
       "response": {
-        "format": "text",
+        "format": "user_id_lines",
         "expect_status": 200,
         "expect_text_lines_exclude_variables": ["stable_peer_user_id"],
         "compare": { "status": true, "content_type": false, "body": true }
-      }
+      },
+      "normalizers": [{ "kind": "variable", "path": "body.users.0.user_id", "variable": "stable_bot_user_id" }]
     },
     {
       "id": "friend-add",
@@ -887,11 +889,12 @@
         "headers": { "User-Agent": "osu!" }
       },
       "response": {
-        "format": "text",
+        "format": "user_id_lines",
         "expect_status": 200,
         "expect_text_lines_include_variables": ["stable_peer_user_id"],
         "compare": { "status": true, "content_type": false, "body": true }
-      }
+      },
+      "normalizers": [{ "kind": "variable", "path": "body.users.0.user_id", "variable": "stable_bot_user_id" }]
     },
     {
       "id": "friend-remove",
@@ -922,11 +925,12 @@
         "headers": { "User-Agent": "osu!" }
       },
       "response": {
-        "format": "text",
+        "format": "user_id_lines",
         "expect_status": 200,
         "expect_text_lines_exclude_variables": ["stable_peer_user_id"],
         "compare": { "status": true, "content_type": false, "body": true }
-      }
+      },
+      "normalizers": [{ "kind": "variable", "path": "body.users.0.user_id", "variable": "stable_bot_user_id" }]
     },
     {
       "id": "logout",

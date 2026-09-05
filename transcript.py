@@ -275,7 +275,11 @@ def validate_transcript(value: Any, *, source: str = "<transcript>") -> None:
             "expect_text_lines_exclude_variables",
             "expect_text_lines_include_variables",
             "expect_text_not_contains",
-        } & set(response) and body_format != "text":
+        } & set(response) and body_format != "text" and not (
+            body_format == "user_id_lines" and not {
+                "expect_text_contains", "expect_text_equals", "expect_text_not_contains"
+            } & set(response)
+        ):
             raise TranscriptError(f"{where}.response text expectations require text format")
         for key in ("expect_text_lines_include_variables", "expect_text_lines_exclude_variables"):
             values = response.get(key, [])
