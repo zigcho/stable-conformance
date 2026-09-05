@@ -87,7 +87,8 @@ def build_config(ports, snapshot, commit):
         if name == "reference":
             request(port, f.packet(63, f.string("#lobby")), tokens["mp_invitee"])
         map_ = f.beatmap(0)
-        values.update(username=f.username(16), password_md5=f.PASSWORD_MD5, user_id=10016,
+        values.update(stable_bot_user_id=3 if name == "zigcho" else 1,
+                      username=f.username(16), password_md5=f.PASSWORD_MD5, user_id=10016,
                       stable_token=tokens["web"], beatmap_id=map_.id, beatmap_set_id=map_.id,
                       beatmap_md5=map_.md5, beatmap_filename="zigcho benchmark - isolated workload 0 (bench_0) [synthetic].osu",
                       score_id=1, direct_message_sender=f.username(0), stable_mp_match_id=0,
@@ -109,6 +110,15 @@ def build_config(ports, snapshot, commit):
         target["origin"] = f"http://127.0.0.1:{port}"
         for token in tokens.values():
             request(port, token=token)
+        # The reference's rating endpoint intentionally consults its RAM map
+        # cache. Establish that precondition through the real leaderboard route,
+        # independently of whether the earlier read-only transcript passes.
+        query = urlencode({"s": 0, "vv": 4, "v": 1, "c": map_.md5,
+                           "f": values["beatmap_filename"], "m": 0, "i": map_.id,
+                           "mods": 0, "h": "", "a": 0, "us": f.username(16), "ha": f.PASSWORD_MD5})
+        status, _, _ = request(port, None, tokens["web"], path="/web/osu-osz2-getscores.php?" + query)
+        if status != 200:
+            raise RuntimeError(f"{name} could not warm the fixture map: HTTP {status}")
     # Login broadcasts from later accounts must not contaminate early sessions.
     for name, tokens in all_tokens.items():
         for token in tokens.values():

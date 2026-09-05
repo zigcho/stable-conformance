@@ -22,6 +22,7 @@
         "max_response_bytes": 16777216
       },
       "variables": {
+        "stable_bot_user_id": { "value": 3 },
         "stable_login_username": { "env": "ZIGCHO_CONFORMANCE_LOGIN_USER", "secret": true },
         "stable_login_password_md5": { "env": "ZIGCHO_CONFORMANCE_LOGIN_PASSWORD_MD5", "secret": true },
         "stable_login_client_hashes": { "env": "ZIGCHO_CONFORMANCE_LOGIN_CLIENT_HASHES", "secret": true },
@@ -99,6 +100,7 @@
         "max_response_bytes": 16777216
       },
       "variables": {
+        "stable_bot_user_id": { "value": 1 },
         "stable_login_username": { "env": "REFERENCE_CONFORMANCE_LOGIN_USER", "secret": true },
         "stable_login_password_md5": { "env": "REFERENCE_CONFORMANCE_LOGIN_PASSWORD_MD5", "secret": true },
         "stable_login_client_hashes": { "env": "REFERENCE_CONFORMANCE_LOGIN_CLIENT_HASHES", "secret": true },

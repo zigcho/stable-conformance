@@ -25,6 +25,10 @@ transcript's actions except its own declared requests.
 the records use fake accounts, generated hardware hashes, one generated map per
 set, and a generated replay. bot identity is recorded honestly: Kai is 3, the
 pinned reference bot is 1. no response-wide normalisation hides the difference.
+the friends response is parsed into individual ids, preserving order, duplicates
+and its final newline. only the fixture bot id is mapped. the match-created
+message likewise maps only its sender-id field after joining the action/drain
+pair. a wrong id, changed message, extra packet or changed count still fails.
 the reference bootstrap runs its normal lifespan, then joins its permanent bot
 to the same two public channels through `Player.join_channel`. that fixture
 membership and the bootstrap file's hash are retained in the evidence. no

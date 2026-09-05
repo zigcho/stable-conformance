@@ -42,6 +42,7 @@
     "Zigcho drains queued packets before handling a poll while the pinned reference dequeues afterward; action plus immediate actor drain is the causal unit"
   ],
   "requires": [
+    "stable_bot_user_id",
     "stable_mp_primary_token",
     "stable_mp_primary_user_id",
     "stable_mp_peer_token",
@@ -436,7 +437,7 @@
     }
   ],
   "response_groups": [
-    { "id": "create-actor-unit", "steps": ["create-match", "primary-drains-after-create"] },
+    { "id": "create-actor-unit", "steps": ["create-match", "primary-drains-after-create"], "normalizers": [{"kind":"variable","path":"body.packets.4.payload.sender_id","variable":"stable_bot_user_id"}] },
     { "id": "peer-join-actor-unit", "steps": ["peer-joins", "peer-drains-after-join"] },
     { "id": "settings-actor-unit", "steps": ["host-changes-settings", "primary-drains-after-host-changes-settings"] },
     { "id": "password-actor-unit", "steps": ["host-changes-password", "primary-drains-after-host-changes-password"] },

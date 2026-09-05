@@ -9,6 +9,7 @@
     "reason": "replay reads record views and leaderboard/direct lookups may hydrate map or object-cache state"
   },
   "requires": [
+    "stable_bot_user_id",
     "username",
     "password_md5",
     "beatmap_id",
@@ -38,7 +39,8 @@
         "query": { "u": "{{username}}", "h": "{{password_md5}}" },
         "headers": { "User-Agent": "osu!" }
       },
-      "response": { "format": "text", "expect_status": 200, "compare": { "content_type": false } }
+      "response": { "format": "user_id_lines", "expect_status": 200, "compare": { "content_type": false } },
+      "normalizers": [{"kind":"variable","path":"body.users.0.user_id","variable":"stable_bot_user_id"}]
     },
     {
       "id": "beatmap-info",

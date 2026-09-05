@@ -95,7 +95,7 @@
             "allowed_packet_ids": [5, 11, 65, 71, 72, 75, 83, 89, 92],
             "allow_duplicate_packet_ids": [11, 65, 83],
             "packet_fields": [
-              { "packet_id": 75, "path": "payload.version", "value": 19 },
+              { "packet_id": 75, "path": "payload.protocol_version", "value": 19 },
               { "packet_id": 5, "path": "payload.user_id", "variable": "stable_login_user_id" },
               { "packet_id": 71, "path": "payload.privileges", "predicate": "positive" },
               { "packet_id": 92, "path": "payload.seconds", "value": 0 },
@@ -109,7 +109,7 @@
             "allowed_packet_ids": [5, 11, 24, 65, 71, 72, 75, 76, 83, 89, 92],
             "allow_duplicate_packet_ids": [11, 65, 83],
             "packet_fields": [
-              { "packet_id": 75, "path": "payload.version", "value": 19 },
+              { "packet_id": 75, "path": "payload.protocol_version", "value": 19 },
               { "packet_id": 5, "path": "payload.user_id", "variable": "stable_login_user_id" },
               { "packet_id": 71, "path": "payload.privileges", "predicate": "positive" },
               { "packet_id": 92, "path": "payload.seconds", "value": 0 },

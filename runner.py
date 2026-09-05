@@ -445,7 +445,11 @@ def _check_response_group(
             target_name: _aggregate_group_packets(group["steps"], target_name, canonical_history)
             for target_name in ("zigcho", "reference")
         }
-    except (KeyError, TranscriptError, TypeError, ValueError) as exc:
+        for target_name in aggregated:
+            aggregated[target_name] = apply_rules(aggregated[target_name], group.get("normalizers", []), states[target_name].variables)
+        if group.get("normalizers"):
+            report["normalizers"] = group["normalizers"]
+    except (KeyError, NormalizationError, TranscriptError, TypeError, ValueError) as exc:
         return {**report, "status": "failed", "error": _redact(str(exc), states.values())}
     difference = first_difference(aggregated["zigcho"], aggregated["reference"])
     if difference is not None:
@@ -1038,6 +1042,17 @@ def canonical_response(response: HttpResponse, spec: Mapping[str, Any]) -> dict[
 
 
 def _decode_body(body: bytes, body_format: str) -> Any:
+    if body_format == "user_id_lines":
+        lines = body.split(b"\n") if body else []
+        trailing = bool(lines and lines[-1] == b"")
+        if trailing:
+            lines.pop()
+        users = []
+        for line in lines:
+            if not re.fullmatch(rb"[1-9][0-9]{0,9}", line) or int(line) > 2147483647:
+                raise TranscriptError("invalid user id in legacy friends response")
+            users.append({"user_id": int(line)})
+        return {"users": users, "trailing_newline": trailing}
     if body_format == "binary":
         return {"encoding": "base64", "value": base64.b64encode(body).decode("ascii")}
     if body_format == "text":

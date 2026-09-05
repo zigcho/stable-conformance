@@ -21,7 +21,7 @@ from strict_json import StrictJsonError, load_path
 SCHEMA_VERSION = 1
 _ID = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _PLACEHOLDER = re.compile(r"{{([a-zA-Z_][a-zA-Z0-9_.-]*)}}")
-_FORMATS = {"bancho_packets", "binary", "json", "text"}
+_FORMATS = {"bancho_packets", "binary", "json", "text", "user_id_lines"}
 _CATEGORIES = {"legacy-web", "malformed-input", "policy-matrix", "stable-packets"}
 _SOURCE_ATTESTATIONS = {"reference-presence-request-all-shadowed-set-routing"}
 _RESPONSE_KEYS = {
@@ -322,8 +322,12 @@ def validate_transcript(value: Any, *, source: str = "<transcript>") -> None:
     grouped_steps: set[str] = set()
     for index, group in enumerate(response_groups):
         where = f"{source}: response_groups[{index}]"
-        if not isinstance(group, dict) or set(group) != {"id", "steps"}:
-            raise TranscriptError(f"{where} must contain exactly id and steps")
+        if not isinstance(group, dict) or not {"id", "steps"} <= set(group) or set(group) - {"id", "steps", "normalizers"}:
+            raise TranscriptError(f"{where} must contain id, steps and optional identity normalizers")
+        _validate_rules(group.get("normalizers", []), where=f"{where}.normalizers")
+        for rule in group.get("normalizers", []):
+            if rule["kind"] != "variable" or rule["variable"] not in requires:
+                raise TranscriptError(f"{where} normalizers must name required identity variables")
         group_id = group["id"]
         group_steps = group["steps"]
         if not isinstance(group_id, str) or not _ID.fullmatch(group_id) or group_id in response_group_ids:
