@@ -31,7 +31,7 @@ def start(listen_port: int, upstream_port: int, domain: str):
             headers = {k: v for k, v in self.headers.items()
                        if k.lower() not in {"host", "connection", "content-length"}}
             headers.update({"Host": ("c." if self.path == "/" else "osu.") + domain,
-                            "Connection": "close", "CF-IPCountry": "AU",
+                            "Connection": "close", "CF-Connecting-IP": "127.0.0.1", "CF-IPCountry": "AU",
                             "CF-IPLatitude": "0", "CF-IPLongitude": "0"})
             connection = HTTPConnection("127.0.0.1", upstream_port, timeout=15)
             try:
