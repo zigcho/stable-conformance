@@ -27,7 +27,7 @@ async def fixture_lifespan(application):
         # Identity remains reference id 1, Zigcho id 3; no packets are rewritten.
         bot = app.state.sessions.bot
         for name in ("#osu", "#announce"):
-            channel = app.state.sessions.channels[name]
+            channel = app.state.sessions.channels.get_by_name(name)
             if channel is None or not bot.join_channel(channel):
                 raise RuntimeError("could not establish reference bot fixture membership")
         yield
