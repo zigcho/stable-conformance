@@ -395,6 +395,12 @@ def _run_step(
             "policy_id": policy_matrix["id"],
             "targets": results,
         }
+        if policy_matrix.get("bot_branding"):
+            report["bot_branding"] = {
+                "compared": False,
+                "scope": "only bot ids 3/1: action, info text, presence branding and geometry",
+                "verified": "one presence and stats packet, zero gameplay stats, one bot friend entry; all human packets still compared",
+            }
         source_attestation = policy_matrix.get("source_attestation")
         if source_attestation is not None:
             report.update(
@@ -834,6 +840,47 @@ def _source_label(source: Any) -> str:
     return f"transcript:{Path(source).name}"
 
 
+def _login_bot_comparison_packets(packets, target_name):
+    """Validate the fixed permanent bot, then compare human payloads unchanged."""
+    bot_id = {"zigcho": 3, "reference": 1}[target_name]
+    for packet_id in (11, 83):
+        selected = [p for p in packets if p["id"] == packet_id and p["payload"].get("user_id") == bot_id]
+        if len(selected) != 1:
+            raise TranscriptError("login must contain exactly one permanent bot presence and stats packet")
+        payload = selected[0]["payload"]
+        if packet_id == 11:
+            for field in ("mods", "mode", "beatmap_id", "ranked_score", "accuracy", "play_count", "total_score", "global_rank", "pp"):
+                if payload.get(field) != 0:
+                    raise TranscriptError(f"permanent bot must have zero {field}; gameplay values are not branding")
+            if payload.get("beatmap_md5") != "":
+                raise TranscriptError("permanent bot must not advertise a map checksum")
+            if not isinstance(payload.get("info_text"), str) or not 0 <= payload.get("action", -1) <= 13:
+                raise TranscriptError("invalid permanent bot activity")
+        else:
+            if not payload.get("username") or not 0 < payload.get("privileges", 0) <= 31:
+                raise TranscriptError("permanent bot must have a visible name and client privileges")
+            if payload.get("mode") != 0 or payload.get("global_rank") != 0:
+                raise TranscriptError("permanent bot must not advertise gameplay rank")
+            if not all(math.isfinite(payload.get(field, float("nan"))) for field in ("longitude", "latitude")):
+                raise TranscriptError("invalid permanent bot coordinates")
+    output = []
+    friend_packets = 0
+    for packet in packets:
+        if packet["id"] in (11, 83) and packet["payload"].get("user_id") == bot_id:
+            continue
+        item = copy.deepcopy(packet)
+        if item["id"] == 72:
+            friend_packets += 1
+            ids = item["payload"]["user_ids"]
+            if ids.count(bot_id) != 1:
+                raise TranscriptError("login friends must include the permanent bot exactly once")
+            item["payload"]["user_ids"] = ["<permanent-bot>" if value == bot_id else value for value in ids]
+        output.append(item)
+    if friend_packets != 1:
+        raise TranscriptError("login must contain exactly one friends packet")
+    return output
+
+
 def _check_policy_matrix(
     matrix: Mapping[str, Any],
     canonical: Mapping[str, Any],
@@ -937,11 +984,14 @@ def _check_policy_matrix(
                     f"field {field['path']!r} to match exactly {field['count']} time(s), "
                     f"got {len(matching_packets)}"
                 )
+    comparison_packets = {name: canonical[name]["body"]["packets"] for name in ("zigcho", "reference")} if matrix.get("compare_packet_ids") else {}
+    if matrix.get("bot_branding"):
+        comparison_packets = {name: _login_bot_comparison_packets(comparison_packets[name], name) for name in ("zigcho", "reference")}
     for packet_id in matrix.get("compare_packet_ids", []):
         selected = {
             target_name: [
                 packet
-                for packet in canonical[target_name]["body"]["packets"]
+                for packet in comparison_packets[target_name]
                 if packet.get("id") == packet_id
             ]
             for target_name in ("zigcho", "reference")

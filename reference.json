@@ -37,7 +37,7 @@
       "packet_ids": [],
       "reference": "includes its welcome notification, menu icon and configured channel ordering",
       "zigcho": "returns Zigcho's own channels and omits bancho.py branding",
-      "reason": "the client contract requires a coherent bootstrap, not another server's branding; critical protocol, identity, privileges, presence, stats, channel-end and friends packets stay pinned per target"
+      "reason": "the client contract requires a coherent bootstrap, not another server's branding; the fixed bots (Zigcho 3, reference 1) have separately validated presence, zero gameplay stats and friend membership, while their status text, action and presence branding may differ. Every human presence/stat and every other friend id remains compared; protocol, login identity, privileges and channel-end stay pinned per target"
     },
     {
       "id": "malformed-input-hardening",

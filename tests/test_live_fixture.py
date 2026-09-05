@@ -4,7 +4,7 @@ from unittest.mock import patch
 from benchmarks.fixtures import packet
 from integration.live import packet_ids
 from integration.proxy import start
-from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group
+from runner import RunOptions, TargetState, run_transcripts, _decode_body, _check_response_group, _login_bot_comparison_packets
 from transcript import TranscriptError
 
 
@@ -52,6 +52,23 @@ class LiveFixtureTests(unittest.TestCase):
         self.assertEqual(_check_response_group(group, history, states)["status"], "failed")
         history["action"]["reference"]["body"]["packets"][0]["payload"]["sender_id"] = 99
         self.assertEqual(_check_response_group(group, history, states)["status"], "failed")
+
+    def test_login_bot_branding_cannot_hide_scores_or_other_users(self):
+        stats = {field: 0 for field in ("mods", "mode", "beatmap_id", "ranked_score", "accuracy", "play_count", "total_score", "global_rank", "pp")}
+        stats.update(user_id=3, action=0, info_text="kai", beatmap_md5="")
+        packets = [
+            {"id": 11, "payload": stats},
+            {"id": 83, "payload": {"user_id": 3, "username": "kai", "privileges": 31, "mode": 0, "global_rank": 0, "longitude": 0.0, "latitude": 0.0}},
+            {"id": 72, "payload": {"user_ids": [3, 10000]}},
+            {"id": 11, "payload": {"user_id": 10000, "pp": 123}},
+        ]
+        scoped = _login_bot_comparison_packets(packets, "zigcho")
+        self.assertEqual(scoped[-1], packets[-1])
+        self.assertEqual(scoped[0]["payload"]["user_ids"], ["<permanent-bot>", 10000])
+        self.assertEqual(packets[2]["payload"]["user_ids"], [3, 10000])
+        stats["pp"] = 1
+        with self.assertRaises(TranscriptError):
+            _login_bot_comparison_packets(packets, "zigcho")
 
 
 if __name__ == "__main__":

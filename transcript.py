@@ -709,6 +709,7 @@ def _validate_policy_matrix(matrix: Any, *, category: Any, where: str) -> None:
     if not isinstance(matrix, dict):
         raise TranscriptError(f"{where} must be an object")
     unknown_matrix_keys = set(matrix) - {
+        "bot_branding",
         "compare_after_removing",
         "compare_packet_ids",
         "compare_target_with_step",
@@ -721,6 +722,10 @@ def _validate_policy_matrix(matrix: Any, *, category: Any, where: str) -> None:
         raise TranscriptError(f"{where} has unsupported key {sorted(unknown_matrix_keys)[0]!r}")
     if not isinstance(matrix.get("id"), str) or not _ID.fullmatch(matrix["id"]):
         raise TranscriptError(f"{where}.id must be safe")
+    if "bot_branding" in matrix and (matrix["id"] != "stable-login-bootstrap" or matrix["bot_branding"] is not True):
+        raise TranscriptError(f"{where}.bot_branding is only the fixed login bot contract")
+    if matrix.get("bot_branding") and not {11, 72, 83} <= set(matrix.get("compare_packet_ids", [])):
+        raise TranscriptError(f"{where}.bot_branding requires stats, friends and presence comparisons")
     removals = matrix.get("compare_after_removing")
     if removals is not None:
         if not isinstance(removals, dict) or set(removals) != {"zigcho", "reference"}:

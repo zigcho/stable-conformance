@@ -54,6 +54,7 @@
       },
       "policy_matrix": {
         "id": "stable-login-bootstrap",
+        "bot_branding": true,
         "compare_packet_ids": [5, 11, 71, 72, 75, 83, 92],
         "targets": {
           "zigcho": {

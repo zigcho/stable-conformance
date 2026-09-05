@@ -29,6 +29,14 @@ the friends response is parsed into individual ids, preserving order, duplicates
 and its final newline. only the fixture bot id is mapped. the match-created
 message likewise maps only its sender-id field after joining the action/drain
 pair. a wrong id, changed message, extra packet or changed count still fails.
+
+login has a declared bot-branding boundary too. the reference randomly changes
+its bot status and sends deliberately off-map coordinates; Kai does neither.
+the harness requires exactly one presence/stats packet for the fixed bot id,
+zero bot gameplay values, and one bot friend entry. it records that the bot's
+activity/presence branding is not compared. every human presence/stat, every
+other friend id and all gameplay values remain checked. this is not a waiver for
+missing bot packets, extra bot packets or a bot carrying scores.
 the reference bootstrap runs its normal lifespan, then joins its permanent bot
 to the same two public channels through `Player.join_channel`. that fixture
 membership and the bootstrap file's hash are retained in the evidence. no
